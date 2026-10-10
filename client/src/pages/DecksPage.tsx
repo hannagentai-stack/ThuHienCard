@@ -12,6 +12,8 @@ import {
   ArrowRightLeft,
   BookOpen,
   X,
+  Play,
+  Filter,
 } from 'lucide-react';
 import { useDeckStore } from '../stores/deckStore';
 import { type Deck, type Card } from '../types';
@@ -57,6 +59,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
   // Xem chi tiết danh sách thẻ trong bộ
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [cardSearchQuery, setCardSearchQuery] = useState('');
+  const [cardStateFilter, setCardStateFilter] = useState<'all' | 'new' | 'learning' | 'review'>('all');
 
   // Modals cho thẻ & Excel
   const [isCardEditorOpen, setIsCardEditorOpen] = useState(false);
@@ -139,15 +142,23 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
   // Lọc thẻ bên trong bộ
   const cardsInActiveDeck = (currentDeck?.cards || []).filter((c: Card) => {
     const q = cardSearchQuery.toLowerCase();
-    return (
+    const matchQuery =
       c.front.toLowerCase().includes(q) ||
       c.back.toLowerCase().includes(q) ||
-      (c.phonetic && c.phonetic.toLowerCase().includes(q))
-    );
+      (c.phonetic && c.phonetic.toLowerCase().includes(q));
+
+    const state = c.schedule?.state || 'new';
+    const matchState =
+      cardStateFilter === 'all' ||
+      (cardStateFilter === 'new' && state === 'new') ||
+      (cardStateFilter === 'learning' && (state === 'learning' || state === 'relearning')) ||
+      (cardStateFilter === 'review' && state === 'review');
+
+    return matchQuery && matchState;
   });
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-6 pb-20">
       
       {/* 1. HEADER & CÔNG CỤ TÌM KIẾM BỘ THẺ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -163,7 +174,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
 
         <button
           onClick={handleOpenCreateDeck}
-          className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-kawaii-400 to-kawaii-500 hover:from-kawaii-500 hover:to-kawaii-600 text-white font-bold text-xs shadow-kawaii btn-bounce flex items-center justify-center gap-1.5 shrink-0"
+          className="min-h-[48px] px-5 py-2.5 rounded-2xl bg-gradient-to-r from-kawaii-400 to-kawaii-500 hover:from-kawaii-500 hover:to-kawaii-600 text-white font-bold text-xs shadow-kawaii btn-bounce flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
         >
           <Plus className="w-4 h-4" />
           <span>Tạo bộ thẻ mới</span>
@@ -172,12 +183,11 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
 
       {/* Thanh lọc ngôn ngữ & Tìm kiếm */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-        
         {/* Bộ lọc tab ngôn ngữ */}
         <div className="flex bg-white dark:bg-dark-card p-1 rounded-2xl border border-kawaii-200 dark:border-dark-border shadow-sm w-full sm:w-auto">
           <button
             onClick={() => setLangFilter('all')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
+            className={`flex-1 sm:flex-initial px-3.5 py-2 text-xs font-bold rounded-xl transition-all ${
               langFilter === 'all'
                 ? 'bg-kawaii-500 text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-300'
@@ -187,7 +197,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
           </button>
           <button
             onClick={() => setLangFilter('zh')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
+            className={`flex-1 sm:flex-initial px-3.5 py-2 text-xs font-bold rounded-xl transition-all ${
               langFilter === 'zh'
                 ? 'bg-kawaii-500 text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-300'
@@ -197,7 +207,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
           </button>
           <button
             onClick={() => setLangFilter('en')}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
+            className={`flex-1 sm:flex-initial px-3.5 py-2 text-xs font-bold rounded-xl transition-all ${
               langFilter === 'en'
                 ? 'bg-purple-500 text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-300'
@@ -215,10 +225,9 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
             placeholder="Tìm tên bộ thẻ..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-200 dark:border-dark-border text-xs outline-none focus:border-kawaii-500 dark:text-white"
+            className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-200 dark:border-dark-border text-base sm:text-xs outline-none focus:border-kawaii-500 dark:text-white"
           />
         </div>
-
       </div>
 
       {/* 2. DANH SÁCH BỘ THẺ GRID */}
@@ -234,11 +243,11 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
             Chưa có bộ thẻ nào phù hợp 🌸
           </h3>
           <p className="text-xs text-gray-500 max-w-sm mx-auto">
-            Bạn có thể tạo bộ thẻ mới hoặc bấm "Khám phá bộ thẻ mẫu" để nạp từ vựng khởi đầu.
+            Bạn có thể tạo bộ thẻ mới để bắt đầu học ngay bây giờ!
           </p>
           <button
             onClick={handleOpenCreateDeck}
-            className="px-4 py-2 rounded-xl bg-kawaii-500 text-white font-bold text-xs shadow-sm"
+            className="px-5 py-2.5 rounded-xl bg-kawaii-500 text-white font-bold text-xs shadow-sm active:scale-95"
           >
             Tạo bộ thẻ đầu tiên
           </button>
@@ -251,7 +260,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
               <div
                 key={deck.id}
                 onClick={() => handleOpenDeckCards(deck.id)}
-                className="group relative p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 dark:hover:border-kawaii-400 shadow-sm hover:shadow-kawaii transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden"
+                className="group relative p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 dark:hover:border-kawaii-400 shadow-sm hover:shadow-kawaii transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden active:scale-[0.99]"
               >
                 {/* Viền màu trên đầu card */}
                 <div
@@ -260,11 +269,12 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                 />
 
                 <div className="space-y-3">
-                  
-                  {/* Tiêu đề & Ngôn ngữ */}
+                  {/* Tiêu đề & Ngôn ngữ & Sửa/Xóa với Touch Target ≥44px */}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{deck.icon || (deck.language === 'zh' ? '🇨🇳' : '🇬🇧')}</span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-2xl p-1 bg-gray-50 dark:bg-dark-bg rounded-xl">
+                        {deck.icon || (deck.language === 'zh' ? '🇨🇳' : '🇬🇧')}
+                      </span>
                       <div>
                         <h3 className="font-bold text-base text-gray-900 dark:text-white font-display group-hover:text-kawaii-600 dark:group-hover:text-kawaii-400 transition-colors line-clamp-1">
                           {deck.title}
@@ -275,15 +285,15 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                       </div>
                     </div>
 
-                    {/* Nút Sửa & Xóa */}
-                    <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                    {/* Nút Sửa & Xóa Touch target ≥44px */}
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={(e) => handleOpenEditDeck(deck, e)}
                         title="Sửa bộ thẻ"
-                        className="p-1.5 text-gray-400 hover:text-kawaii-600 rounded-lg hover:bg-kawaii-50 transition-colors"
+                        className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-kawaii-600 rounded-xl hover:bg-kawaii-50 dark:hover:bg-dark-bg transition-colors active:scale-95"
                       >
-                        <Edit className="w-3.5 h-3.5" />
+                        <Edit className="w-4 h-4" />
                       </button>
                       <button
                         type="button"
@@ -294,9 +304,9 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                           }
                         }}
                         title="Xóa bộ thẻ"
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+                        className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-red-500 rounded-xl hover:bg-red-50 dark:hover:bg-dark-bg transition-colors active:scale-95"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -310,31 +320,30 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
 
                   {/* Thống kê thẻ: Tổng / Mới / Đến hạn SRS */}
                   <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100 dark:border-dark-border text-center">
-                    <div className="p-2 rounded-xl bg-kawaii-50/60 dark:bg-dark-bg/60">
-                      <span className="block text-sm font-extrabold text-kawaii-600 dark:text-kawaii-400">
+                    <div className="p-2 rounded-2xl bg-kawaii-50/60 dark:bg-dark-bg/60">
+                      <span className="block text-base font-extrabold text-kawaii-600 dark:text-kawaii-400">
                         {stats.totalCards}
                       </span>
                       <span className="text-[10px] text-gray-400 font-semibold">Tổng thẻ</span>
                     </div>
 
-                    <div className="p-2 rounded-xl bg-blue-50/60 dark:bg-blue-950/30">
-                      <span className="block text-sm font-extrabold text-blue-600 dark:text-blue-400">
+                    <div className="p-2 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30">
+                      <span className="block text-base font-extrabold text-blue-600 dark:text-blue-400">
                         {stats.newCards}
                       </span>
                       <span className="text-[10px] text-gray-400 font-semibold">Thẻ mới</span>
                     </div>
 
-                    <div className="p-2 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30">
-                      <span className="block text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+                    <div className="p-2 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30">
+                      <span className="block text-base font-extrabold text-emerald-600 dark:text-emerald-400">
                         {stats.dueCards}
                       </span>
                       <span className="text-[10px] text-gray-400 font-semibold">Đến hạn</span>
                     </div>
                   </div>
-
                 </div>
 
-                {/* Các nút hành động nhanh dưới thẻ */}
+                {/* Các nút hành động nhanh dưới thẻ - Nút Học SRS to rõ vừa ngón cái */}
                 <div className="pt-4 flex items-center justify-between gap-2 mt-2">
                   <span className="text-xs font-bold text-gray-400 flex items-center gap-1 group-hover:text-kawaii-500">
                     <BookOpen className="w-3.5 h-3.5" /> Xem {stats.totalCards} thẻ
@@ -346,9 +355,9 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                       e.stopPropagation();
                       onStartStudy?.(deck.id);
                     }}
-                    className="px-4 py-1.5 rounded-xl bg-kawaii-500 hover:bg-kawaii-600 text-white font-bold text-xs shadow-kawaii-sm btn-bounce flex items-center gap-1"
+                    className="min-h-[44px] px-5 py-2 rounded-2xl bg-gradient-to-r from-kawaii-400 to-kawaii-500 hover:from-kawaii-500 hover:to-kawaii-600 text-white font-bold text-xs shadow-kawaii-sm btn-bounce flex items-center gap-1.5 active:scale-95"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Play className="w-3.5 h-3.5 fill-current" />
                     <span>Học SRS</span>
                   </button>
                 </div>
@@ -359,18 +368,19 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
         </div>
       )}
 
-      {/* 3. MODAL TẠO / SỬA BỘ THẺ */}
+      {/* 3. MODAL TẠO / SỬA BỘ THẺ DẠNG BOTTOM SHEET TRÊN MOBILE */}
       {isDeckModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-dark-card rounded-3xl p-6 sm:p-8 max-w-md w-full border-2 border-kawaii-200 dark:border-dark-border shadow-kawaii-lg space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold font-display text-gray-900 dark:text-white flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center sm:items-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 sm:p-4">
+          <div className="relative w-full max-w-md bg-white dark:bg-dark-card rounded-t-3xl sm:rounded-3xl p-5 sm:p-7 border-t-2 sm:border-2 border-kawaii-200 dark:border-dark-border shadow-kawaii-lg space-y-4 animate-slide-up sm:animate-none">
+            <div className="flex items-center justify-between border-b border-kawaii-100 dark:border-dark-border pb-3">
+              <h3 className="text-lg font-bold font-display text-gray-900 dark:text-white flex items-center gap-2">
                 <span>{deckLang === 'zh' ? '🇨🇳' : '🇬🇧'}</span>
-                <span>{editingDeck ? 'Chỉnh Sửa Bộ Thẻ' : 'Tạo Bộ Thẻ Mới'}</span>
+                <span>{editingDeck ? 'Chỉnh Sửa Bộ Thẻ' : 'Tạo Bộ Thẻ Mới 🌸'}</span>
               </h3>
               <button
                 onClick={() => setIsDeckModalOpen(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full"
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-full"
+                aria-label="Đóng"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -387,7 +397,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                   value={deckTitle}
                   onChange={(e) => setDeckTitle(e.target.value)}
                   placeholder="Ví dụ: 50 Từ HSK 2 Ăn Uống, Oxford B2..."
-                  className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-sm outline-none focus:border-kawaii-500 dark:text-white font-medium"
+                  className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-base sm:text-sm outline-none focus:border-kawaii-500 dark:text-white font-medium"
                 />
               </div>
 
@@ -399,24 +409,24 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                   <button
                     type="button"
                     onClick={() => setDeckLang('zh')}
-                    className={`py-2 rounded-xl text-xs font-bold border-2 transition-all ${
+                    className={`py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
                       deckLang === 'zh'
                         ? 'border-kawaii-500 bg-kawaii-50 dark:bg-dark-bg text-kawaii-600'
                         : 'border-gray-200 dark:border-dark-border text-gray-600'
                     }`}
                   >
-                    🇨🇳 Tiếng Trung (HSK)
+                    🇨🇳 Tiếng Trung
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeckLang('en')}
-                    className={`py-2 rounded-xl text-xs font-bold border-2 transition-all ${
+                    className={`py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
                       deckLang === 'en'
                         ? 'border-purple-500 bg-purple-50 dark:bg-dark-bg text-purple-600'
                         : 'border-gray-200 dark:border-dark-border text-gray-600'
                     }`}
                   >
-                    🇬🇧 Tiếng Anh (Oxford)
+                    🇬🇧 Tiếng Anh
                   </button>
                 </div>
               </div>
@@ -430,7 +440,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                   value={deckDesc}
                   onChange={(e) => setDeckDesc(e.target.value)}
                   placeholder="Ghi chú thêm về mục tiêu bộ thẻ..."
-                  className="w-full px-4 py-2 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-xs outline-none focus:border-kawaii-500 dark:text-white"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-base sm:text-xs outline-none focus:border-kawaii-500 dark:text-white"
                 />
               </div>
 
@@ -438,14 +448,14 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                 <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
                   Màu sắc điểm nhấn
                 </label>
-                <div className="flex gap-2.5">
+                <div className="flex gap-3">
                   {['#FF5C9E', '#A855F7', '#38BDF8', '#34D399', '#FBBF24', '#FB7185'].map((c) => (
                     <button
                       key={c}
                       type="button"
                       onClick={() => setDeckColor(c)}
-                      className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                        deckColor === c ? 'scale-125 border-gray-800 dark:border-white' : 'border-transparent'
+                      className={`w-8 h-8 rounded-full border-2 transition-transform ${
+                        deckColor === c ? 'scale-125 border-gray-900 dark:border-white shadow-sm' : 'border-transparent'
                       }`}
                       style={{ backgroundColor: c }}
                     />
@@ -453,17 +463,18 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              {/* Nút hành động dính dưới màn hình an toàn cho ngón cái */}
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 dark:border-dark-border safe-pb">
                 <button
                   type="button"
                   onClick={() => setIsDeckModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-100"
+                  className="px-4 py-3 rounded-2xl text-xs font-bold text-gray-500 hover:bg-gray-100"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-2xl bg-kawaii-500 text-white font-bold text-xs shadow-kawaii btn-bounce"
+                  className="flex-1 sm:flex-initial min-h-[48px] px-6 py-3 rounded-2xl bg-kawaii-500 text-white font-bold text-xs shadow-kawaii btn-bounce"
                 >
                   {editingDeck ? 'Lưu thay đổi' : 'Tạo bộ thẻ 🌸'}
                 </button>
@@ -473,47 +484,48 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
         </div>
       )}
 
-      {/* 4. MODAL XEM DANH SÁCH THẺ TRONG BỘ (CARD BROWSER) */}
+      {/* 4. CARD BROWSER: FULL-SCREEN TRÊN MOBILE */}
       {activeDeckId && currentDeck && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-6 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-5xl h-[92vh] bg-white dark:bg-dark-card rounded-3xl shadow-kawaii-lg border-2 border-kawaii-200 dark:border-dark-border flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-40 flex flex-col justify-end sm:justify-center sm:items-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 sm:p-4">
+          <div className="relative w-full sm:max-w-5xl h-[100dvh] sm:h-[92vh] bg-white dark:bg-dark-card rounded-t-3xl sm:rounded-3xl shadow-kawaii-lg border-t-2 sm:border-2 border-kawaii-200 dark:border-dark-border flex flex-col overflow-hidden animate-slide-up sm:animate-none">
             
             {/* Header trình duyệt thẻ */}
-            <div className="p-4 sm:p-6 border-b border-kawaii-100 dark:border-dark-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-pink-50/30 dark:bg-dark-bg/40">
+            <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-kawaii-100 dark:border-dark-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-pink-50/40 dark:bg-dark-bg/60 shrink-0">
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleCloseDeckCards}
-                  className="p-2 rounded-xl bg-white dark:bg-dark-card border border-kawaii-200 dark:border-dark-border text-gray-600 dark:text-gray-300 hover:text-kawaii-600"
+                  className="w-10 h-10 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-200 dark:border-dark-border text-gray-600 dark:text-gray-300 hover:text-kawaii-600 flex items-center justify-center active:scale-95 shrink-0"
+                  aria-label="Đóng trình duyệt thẻ"
                 >
                   <X className="w-5 h-5" />
                 </button>
-                <div>
-                  <h2 className="text-xl font-bold font-display text-gray-900 dark:text-white flex items-center gap-2">
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-bold font-display text-gray-900 dark:text-white flex items-center gap-2 truncate">
                     <span>{currentDeck.icon || '🌸'}</span>
-                    <span>{currentDeck.title}</span>
+                    <span className="truncate">{currentDeck.title}</span>
                   </h2>
-                  <p className="text-xs text-gray-500">
-                    Tổng cộng: {currentDeck.cards?.length || 0} thẻ vựng • Ngôn ngữ: {currentDeck.language === 'zh' ? 'Tiếng Trung' : 'Tiếng Anh'}
+                  <p className="text-[11px] text-gray-500 truncate">
+                    {currentDeck.cards?.length || 0} thẻ • {currentDeck.language === 'zh' ? 'Tiếng Trung' : 'Tiếng Anh'}
                   </p>
                 </div>
               </div>
 
               {/* Các nút hành động chính của bộ */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
                 <button
                   onClick={() => {
                     setEditingCard(null);
                     setIsCardEditorOpen(true);
                   }}
-                  className="px-3.5 py-2 rounded-xl bg-kawaii-500 hover:bg-kawaii-600 text-white font-bold text-xs shadow-kawaii-sm btn-bounce flex items-center gap-1.5"
+                  className="min-h-[40px] px-3.5 py-2 rounded-xl bg-kawaii-500 hover:bg-kawaii-600 text-white font-bold text-xs shadow-kawaii-sm btn-bounce flex items-center gap-1.5 shrink-0"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Thêm thẻ mới</span>
+                  <span>+ Thẻ</span>
                 </button>
 
                 <button
                   onClick={() => setIsExcelImportOpen(true)}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-sm flex items-center gap-1.5"
+                  className="min-h-[40px] px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 shrink-0"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   <span>Nhập Excel</span>
@@ -521,15 +533,15 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
 
                 <button
                   onClick={() => exportDeck(currentDeck, 'xlsx')}
-                  className="px-3.5 py-2 rounded-xl bg-white dark:bg-dark-card hover:bg-gray-50 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-dark-border font-bold text-xs shadow-sm flex items-center gap-1"
+                  className="min-h-[40px] px-3 py-2 rounded-xl bg-white dark:bg-dark-card text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-dark-border font-bold text-xs shadow-sm flex items-center gap-1 shrink-0"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Xuất Excel</span>
+                  <span className="hidden sm:inline">Xuất</span>
                 </button>
 
                 <button
                   onClick={() => onStartStudy?.(currentDeck.id)}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-xs shadow-sm btn-bounce flex items-center gap-1.5"
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-xs shadow-sm btn-bounce flex items-center gap-1.5 shrink-0"
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>Học SRS</span>
@@ -537,49 +549,82 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
               </div>
             </div>
 
-            {/* Thanh tìm kiếm thẻ trong bộ */}
-            <div className="p-3 px-6 border-b border-kawaii-100 dark:border-dark-border flex items-center justify-between bg-white dark:bg-dark-card">
-              <div className="relative w-full max-w-sm">
-                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            {/* Thanh tìm kiếm thẻ & Bộ lọc trạng thái ghim trên cùng */}
+            <div className="p-3 sm:px-6 border-b border-kawaii-100 dark:border-dark-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white dark:bg-dark-card shrink-0">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Tìm từ vựng, pinyin hoặc nghĩa..."
+                  placeholder="Tìm từ vựng, pinyin, nghĩa..."
                   value={cardSearchQuery}
                   onChange={(e) => setCardSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-xs outline-none focus:border-kawaii-500 dark:text-white"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-base sm:text-xs outline-none focus:border-kawaii-500 dark:text-white"
                 />
               </div>
 
-              <span className="text-xs text-gray-400 font-medium">
-                Hiển thị {cardsInActiveDeck.length} thẻ
-              </span>
+              {/* Bộ lọc trạng thái thẻ (Tất cả / Mới / Ôn tập) */}
+              <div className="flex items-center gap-1 overflow-x-auto text-xs">
+                <Filter className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-1 hidden sm:block" />
+                <button
+                  type="button"
+                  onClick={() => setCardStateFilter('all')}
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition-colors ${
+                    cardStateFilter === 'all'
+                      ? 'bg-kawaii-100 dark:bg-dark-bg text-kawaii-700 dark:text-kawaii-300'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  Tất cả ({currentDeck.cards?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCardStateFilter('new')}
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition-colors ${
+                    cardStateFilter === 'new'
+                      ? 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  Mới
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCardStateFilter('review')}
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition-colors ${
+                    cardStateFilter === 'review'
+                      ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  Ôn tập
+                </button>
+              </div>
             </div>
 
-            {/* Danh sách thẻ dạng bảng chi tiết */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {/* Danh sách thẻ dạng cards tối ưu cho mobile */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 sm:pb-6">
               {cardsInActiveDeck.length === 0 ? (
-                <div className="text-center py-20 text-gray-400 space-y-2">
+                <div className="text-center py-20 text-gray-400 space-y-3">
                   <Mascot id="kitty_purple" mood="shy" size="sm" />
                   <p className="text-xs font-bold">Chưa có thẻ nào trong bộ này</p>
                   <button
                     onClick={() => setIsCardEditorOpen(true)}
-                    className="px-3 py-1.5 bg-kawaii-500 text-white rounded-xl text-xs font-bold"
+                    className="px-4 py-2 bg-kawaii-500 text-white rounded-xl text-xs font-bold active:scale-95"
                   >
                     Thêm thẻ ngay
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   {cardsInActiveDeck.map((card: Card) => (
                     <div
                       key={card.id}
-                      className="p-4 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-sm flex flex-col justify-between space-y-3 group"
+                      className="p-4 rounded-3xl bg-white dark:bg-dark-card border border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-sm flex flex-col justify-between space-y-3"
                     >
                       <div className="space-y-1.5">
-                        
-                        {/* Hàng trên: Cấp độ + Nút hành động */}
+                        {/* Hàng trên: Cấp độ + Các nút thao tác Touch target ≥40px */}
                         <div className="flex items-center justify-between text-xs">
-                          <span className="px-2 py-0.5 rounded-full bg-kawaii-50 dark:bg-dark-bg text-kawaii-600 dark:text-kawaii-400 font-bold text-[10px]">
+                          <span className="px-2.5 py-0.5 rounded-full bg-kawaii-50 dark:bg-dark-bg text-kawaii-600 dark:text-kawaii-400 font-bold text-[11px]">
                             {card.level || 'HSK1'}
                           </span>
 
@@ -589,9 +634,9 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                                 type="button"
                                 onClick={() => setSelectedHanziCard(card)}
                                 title="Xem nét viết chữ Hán"
-                                className="p-1 text-purple-500 hover:bg-purple-50 rounded-lg text-xs font-bold"
+                                className="w-9 h-9 flex items-center justify-center text-purple-600 hover:bg-purple-50 dark:hover:bg-dark-bg rounded-xl font-bold active:scale-95"
                               >
-                                ✍️ Nét
+                                ✍️
                               </button>
                             )}
 
@@ -602,18 +647,18 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                                 setIsCardEditorOpen(true);
                               }}
                               title="Sửa thẻ"
-                              className="p-1 text-gray-400 hover:text-kawaii-600 rounded-lg"
+                              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-kawaii-600 hover:bg-kawaii-50 dark:hover:bg-dark-bg rounded-xl active:scale-95"
                             >
-                              <Edit className="w-3.5 h-3.5" />
+                              <Edit className="w-4 h-4" />
                             </button>
 
                             <button
                               type="button"
                               onClick={() => duplicateCard(card.id)}
                               title="Nhân bản thẻ"
-                              className="p-1 text-gray-400 hover:text-blue-500 rounded-lg"
+                              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-dark-bg rounded-xl active:scale-95"
                             >
-                              <Copy className="w-3.5 h-3.5" />
+                              <Copy className="w-4 h-4" />
                             </button>
 
                             <button
@@ -623,9 +668,9 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                                 setTargetMoveDeckId(decks.find((d: Deck) => d.id !== currentDeck.id)?.id || '');
                               }}
                               title="Chuyển sang bộ khác"
-                              className="p-1 text-gray-400 hover:text-emerald-500 rounded-lg"
+                              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-dark-bg rounded-xl active:scale-95"
                             >
-                              <ArrowRightLeft className="w-3.5 h-3.5" />
+                              <ArrowRightLeft className="w-4 h-4" />
                             </button>
 
                             <button
@@ -636,9 +681,9 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                                 }
                               }}
                               title="Xóa thẻ"
-                              className="p-1 text-gray-400 hover:text-red-500 rounded-lg"
+                              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-dark-bg rounded-xl active:scale-95"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -649,7 +694,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                             {card.front}
                           </h4>
                           {card.phonetic && (
-                            <p className="text-xs font-semibold text-kawaii-600 dark:text-kawaii-400 font-mono">
+                            <p className="text-xs font-semibold text-kawaii-600 dark:text-kawaii-400 font-mono mt-0.5">
                               {card.phonetic}
                             </p>
                           )}
@@ -660,7 +705,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                           {card.back}
                         </p>
 
-                        {/* Ví dụ nếu có */}
+                        {/* Ví dụ */}
                         {card.example && (
                           <p className="text-xs text-gray-500 dark:text-dark-textMuted italic border-l-2 border-kawaii-300 pl-2 mt-1">
                             {card.example}
@@ -681,14 +726,29 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
               )}
             </div>
 
+            {/* FLOATING ACTION BUTTON (FAB) GÓC DƯỚI PHẢI TRÊN MOBILE */}
+            <div className="absolute bottom-6 right-6 z-30 sm:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingCard(null);
+                  setIsCardEditorOpen(true);
+                }}
+                className="w-14 h-14 rounded-full bg-gradient-to-r from-kawaii-400 to-kawaii-500 text-white shadow-kawaii-lg flex items-center justify-center active:scale-90 transition-transform"
+                aria-label="Thêm thẻ mới"
+              >
+                <Plus className="w-7 h-7" />
+              </button>
+            </div>
+
           </div>
         </div>
       )}
 
       {/* 5. MODAL TẬP VIẾT CHỮ HÁN NHANH */}
       {selectedHanziCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-dark-card rounded-3xl p-6 max-w-sm w-full border-2 border-kawaii-200 dark:border-dark-border shadow-xl text-center space-y-4">
+        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center sm:items-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 sm:p-4">
+          <div className="bg-white dark:bg-dark-card rounded-t-3xl sm:rounded-3xl p-6 max-w-sm w-full border-t-2 sm:border-2 border-kawaii-200 dark:border-dark-border shadow-xl text-center space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-base font-display text-gray-900 dark:text-white">
                 Nét Viết: {selectedHanziCard.front} ✍️
@@ -702,7 +762,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
 
             <button
               onClick={() => setSelectedHanziCard(null)}
-              className="w-full py-2 bg-kawaii-500 text-white rounded-xl text-xs font-bold"
+              className="w-full py-3 bg-kawaii-500 text-white rounded-2xl text-xs font-bold active:scale-95"
             >
               Đóng
             </button>
@@ -712,17 +772,19 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
 
       {/* 6. MODAL DI CHUYỂN THẺ SANG BỘ KHÁC */}
       {movingCardId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-dark-card rounded-3xl p-6 max-w-sm w-full border-2 border-kawaii-200 dark:border-dark-border shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center sm:items-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 sm:p-4">
+          <div className="bg-white dark:bg-dark-card rounded-t-3xl sm:rounded-3xl p-6 max-w-sm w-full border-t-2 sm:border-2 border-kawaii-200 dark:border-dark-border shadow-xl space-y-4 safe-pb">
             <h3 className="font-bold text-base font-display text-gray-900 dark:text-white">
               Di Chuyển Thẻ Sang Bộ Khác 🔄
             </h3>
             <div>
-              <label className="text-xs text-gray-600 block mb-1">Chọn bộ thẻ đích:</label>
+              <label className="text-xs text-gray-600 dark:text-gray-300 block mb-1">
+                Chọn bộ thẻ đích:
+              </label>
               <select
                 value={targetMoveDeckId}
                 onChange={(e) => setTargetMoveDeckId(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-kawaii-200 dark:border-dark-border text-xs dark:text-white bg-white dark:bg-dark-bg"
+                className="w-full p-3 rounded-2xl border border-kawaii-200 dark:border-dark-border text-base sm:text-xs dark:text-white bg-white dark:bg-dark-bg"
               >
                 {decks
                   .filter((d: Deck) => d.id !== currentDeck?.id)
@@ -733,10 +795,10 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                   ))}
               </select>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setMovingCardId(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-500"
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-500"
               >
                 Hủy
               </button>
@@ -747,7 +809,7 @@ export const DecksPage: React.FC<DecksPageProps> = ({ onStartStudy }) => {
                     setMovingCardId(null);
                   }
                 }}
-                className="px-4 py-1.5 rounded-xl bg-kawaii-500 text-white text-xs font-bold"
+                className="px-5 py-2.5 rounded-2xl bg-kawaii-500 text-white text-xs font-bold active:scale-95"
               >
                 Xác nhận chuyển
               </button>

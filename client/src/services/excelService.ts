@@ -122,8 +122,8 @@ export const parsePastedText = (rawText: string, language: 'zh' | 'en'): any[] =
   return rows;
 };
 
-// 5. Tải file Excel mẫu (Template) có sẵn cột và dữ liệu mẫu
-export const downloadTemplate = (language: 'zh' | 'en') => {
+// 5. Tải file Excel mẫu (Template) có sẵn cột và dữ liệu mẫu, hỗ trợ Web Share API trên mobile
+export const downloadTemplate = async (language: 'zh' | 'en') => {
   let headers: string[] = [];
   let sampleData: any[] = [];
   let filename = '';
@@ -207,21 +207,59 @@ export const downloadTemplate = (language: 'zh' | 'en') => {
   const worksheet = XLSX.utils.json_to_sheet(sampleData, { header: headers });
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Flashcards');
+
+  // Thử Web Share API nếu trình duyệt mobile hỗ trợ
+  try {
+    const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const file = new File([blob], filename, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: filename,
+        text: 'File mẫu Excel nhập thẻ Flashcard',
+      });
+      return;
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') return;
+  }
+
   XLSX.writeFile(workbook, filename);
 };
 
-// 6. Xuất bộ thẻ ra file (Excel / CSV / JSON)
-export const exportDeck = (deck: Deck, format: 'xlsx' | 'csv' | 'json') => {
+// 6. Xuất bộ thẻ ra file (Excel / CSV / JSON), hỗ trợ Web Share API trên mobile
+export const exportDeck = async (deck: Deck, format: 'xlsx' | 'csv' | 'json') => {
   const cards = deck.cards || [];
   const safeTitle = deck.title.replace(/[/\\?%*:|"<>]/g, '_');
 
   if (format === 'json') {
     const jsonStr = JSON.stringify(deck, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
+    const filename = `${safeTitle}_backup.json`;
+
+    try {
+      const file = new File([blob], filename, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: filename,
+        });
+        return;
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+    }
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${safeTitle}_backup.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
     return;
@@ -244,9 +282,32 @@ export const exportDeck = (deck: Deck, format: 'xlsx' | 'csv' | 'json') => {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Cards');
 
+  const filename = format === 'csv' ? `${safeTitle}.csv` : `${safeTitle}.xlsx`;
+  const mimeType =
+    format === 'csv'
+      ? 'text/csv'
+      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+  try {
+    const bookType = format === 'csv' ? 'csv' : 'xlsx';
+    const wbout = XLSX.write(workbook, { bookType, type: 'array' });
+    const blob = new Blob([wbout], { type: mimeType });
+    const file = new File([blob], filename, { type: mimeType });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: filename,
+      });
+      return;
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') return;
+  }
+
   if (format === 'csv') {
-    XLSX.writeFile(workbook, `${safeTitle}.csv`, { bookType: 'csv' });
+    XLSX.writeFile(workbook, filename, { bookType: 'csv' });
   } else {
-    XLSX.writeFile(workbook, `${safeTitle}.xlsx`, { bookType: 'xlsx' });
+    XLSX.writeFile(workbook, filename, { bookType: 'xlsx' });
   }
 };
