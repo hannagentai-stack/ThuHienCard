@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Gamepad2,
@@ -28,6 +28,15 @@ interface PracticePageProps {
   onStartSRS: () => void;
 }
 
+const PINYIN_TONES = [
+  'ā', 'á', 'ǎ', 'à',
+  'ō', 'ó', 'ǒ', 'ò',
+  'ē', 'é', 'ě', 'è',
+  'ī', 'í', 'ǐ', 'ì',
+  'ū', 'ú', 'ǔ', 'ù',
+  'ǖ', 'ǘ', 'ǚ', 'ǜ',
+];
+
 export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
   const { decks, fetchDecks } = useDeckStore();
 
@@ -47,6 +56,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
   // Gõ từ state
   const [typedInput, setTypedInput] = useState('');
   const [typingResult, setTypingResult] = useState<'correct' | 'wrong' | null>(null);
+  const typingInputRef = useRef<HTMLInputElement>(null);
 
   // Matching game state
   const [matchingCards, setMatchingCards] = useState<{ id: string; text: string; cardId: string; type: 'front' | 'back'; isMatched: boolean }[]>([]);
@@ -113,6 +123,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
     } else if (chosenMode === 'typing') {
       setTypedInput('');
       setTypingResult(null);
+      setTimeout(() => typingInputRef.current?.focus(), 150);
     }
   };
 
@@ -137,7 +148,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
     }
   };
 
-  // Trắc nghiệm kiểm tra
+  // Trắc nghiệm kiểm tra (chống double-click bằng cờ isAnswerChecked)
   const handleSelectQuizAnswer = (ans: string) => {
     if (isAnswerChecked) return;
     setSelectedAnswer(ans);
@@ -156,7 +167,13 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
       } else {
         finishGame();
       }
-    }, 1200);
+    }, 1100);
+  };
+
+  // Chèn ký tự thanh điệu vào ô gõ
+  const handleInsertTone = (tone: string) => {
+    setTypedInput((prev) => prev + tone);
+    typingInputRef.current?.focus();
   };
 
   // Kiểm tra gõ đáp án
@@ -181,10 +198,11 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
         setCurrentIdx(next);
         setTypedInput('');
         setTypingResult(null);
+        typingInputRef.current?.focus();
       } else {
         finishGame();
       }
-    }, 1500);
+    }, 1400);
   };
 
   // Thiết lập Matching Game (Ghép cặp 4-6 từ)
@@ -219,18 +237,17 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
         setSelectedMatch(null);
         setScore((s) => s + 1);
 
-        // Kiểm tra xem đã ghép hết chưa
         if (updated.every((c) => c.isMatched)) {
           finishGame();
         }
       } else {
-        // Sai -> Đổi lựa chọn sau 500ms
-        setTimeout(() => setSelectedMatch(null), 500);
+        // Sai -> Tự bỏ chọn sau 450ms
+        setTimeout(() => setSelectedMatch(null), 450);
       }
     }
   };
 
-  // Đếm ngược Speed Review
+  // Đếm ngược Speed Review (60s)
   useEffect(() => {
     let timer: any;
     if (mode === 'speed' && isSpeedRunning && timeLeft > 0) {
@@ -243,75 +260,80 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
   }, [mode, isSpeedRunning, timeLeft]);
 
   const finishGame = () => {
-    confetti({ particleCount: 80, spread: 60 });
+    confetti({ particleCount: 90, spread: 65, origin: { y: 0.6 } });
   };
 
   // 1. MENU CHÍNH: DANH SÁCH 8 CHẾ ĐỘ LUYỆN TẬP
   if (mode === 'menu') {
     return (
-      <div className="space-y-8 pb-16">
-        
-        {/* Tiêu đề & Chọn bộ thẻ */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="space-y-6 pb-20 max-w-4xl mx-auto">
+        {/* Tiêu đề & Chọn bộ từ */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
-              <Gamepad2 className="w-8 h-8 text-kawaii-500" />
-              <span>Chế Độ Luyện Tập Phong Phú 🎮</span>
+              <Gamepad2 className="w-7 h-7 text-kawaii-500" />
+              <span>8 Chế Độ Luyện Tập 🎮</span>
             </h1>
-            <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1">
-              8 chế độ mini-games đa dạng giúp bạn đổi gió và tăng phản xạ từ vựng
+            <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-0.5">
+              Học qua trò chơi phản xạ, gõ từ, nghe và tập viết nét
             </p>
           </div>
 
+          {/* Dropdown chọn bộ thẻ có font 16px chống iOS auto-zoom */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Bộ thẻ:</span>
+            <span className="text-xs font-bold text-gray-600 dark:text-gray-300 shrink-0">Bộ thẻ:</span>
             <select
               value={selectedDeckId}
               onChange={(e) => setSelectedDeckId(e.target.value)}
-              className="px-3 py-2 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-200 dark:border-dark-border text-xs font-bold dark:text-white outline-none shadow-sm"
+              className="px-3 py-2 min-h-[44px] rounded-2xl bg-white dark:bg-dark-card border border-kawaii-200 dark:border-dark-border text-base sm:text-xs font-bold text-gray-800 dark:text-gray-200 outline-none focus:border-kawaii-500 shadow-xs"
             >
-              <option value="all">Tất cả bộ thẻ 🌸</option>
+              <option value="all">Tất cả bộ thẻ</option>
               {decks.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.icon || '🌸'} {d.title}
+                  {d.title} ({d.cards?.length || 0} từ)
                 </option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* Lưới 8 Chế độ chơi */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Lưới 8 Thẻ Chế Độ - Mobile Friendly */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           
-          {/* Chế độ 1: SRS Lật Thẻ Cổ Điển */}
+          {/* Chế độ 1: SRS Ôn Tập Chuẩn */}
           <div
             onClick={onStartSRS}
-            className="p-5 rounded-3xl bg-gradient-to-br from-pink-500 to-rose-400 text-white shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-4"
+            className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-pink-50 to-white dark:from-dark-card dark:to-dark-cardHover border-2 border-kawaii-300 dark:border-dark-border shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
           >
             <div>
-              <span className="text-3xl">📇</span>
-              <h3 className="font-extrabold text-base font-display mt-2">1. Lật Thẻ FSRS</h3>
-              <p className="text-xs text-pink-100 mt-1">
-                Lặp lại ngắt quãng khoa học, lật 3D và 4 nút đánh giá chuẩn Anki.
+              <div className="flex items-center justify-between">
+                <span className="text-2xl sm:text-3xl">🌸</span>
+                <span className="px-2 py-0.5 rounded-full bg-kawaii-500 text-white text-[10px] font-bold">Khuyên dùng</span>
+              </div>
+              <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
+                1. Ôn Tập Chuẩn FSRS
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1 leading-relaxed">
+                Thuật toán lặp lại ngắt quãng khoa học: Lại, Khó, Tốt, Dễ.
               </p>
             </div>
-            <span className="text-xs font-bold bg-white/20 px-3 py-1 rounded-full self-start">
-              Chế độ chính ⭐
+            <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
+              Vào học ngay →
             </span>
           </div>
 
           {/* Chế độ 2: Trắc Nghiệm 4 Đáp Án */}
           <div
             onClick={() => startMode('quiz')}
-            className="p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-sm hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-4"
+            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
           >
             <div>
-              <span className="text-3xl">🎯</span>
+              <span className="text-2xl sm:text-3xl">🎯</span>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 2. Trắc Nghiệm 4 Đáp Án
               </h3>
-              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1">
-                Tự sinh 3 đáp án nhiễu từ cùng bộ thẻ để bạn chọn nghĩa chuẩn xác.
+              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1 leading-relaxed">
+                Nhìn từ vựng và chọn 1 trong 4 nghĩa tiếng Việt nhanh nhất.
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
@@ -322,15 +344,15 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
           {/* Chế độ 3: Gõ Đáp Án */}
           <div
             onClick={() => startMode('typing')}
-            className="p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-sm hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-4"
+            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
           >
             <div>
-              <span className="text-3xl">⌨️</span>
+              <span className="text-2xl sm:text-3xl">⌨️</span>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
-                3. Gõ Từ / Pinyin
+                3. Gõ Từ / Pinyin Chính Xác
               </h3>
-              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1">
-                Luyện trí nhớ chủ động bằng cách tự gõ từ tiếng Anh hoặc Pinyin/Hán tự.
+              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1 leading-relaxed">
+                Rèn trí nhớ cơ bắp, hỗ trợ thanh phím nhanh thanh điệu tiếng Trung.
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
@@ -338,18 +360,18 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
             </span>
           </div>
 
-          {/* Chế độ 4: Luyện Nghe */}
+          {/* Chế độ 4: Luyện Nghe TTS */}
           <div
             onClick={() => startMode('listening')}
-            className="p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-sm hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-4"
+            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
           >
             <div>
-              <span className="text-3xl">🎧</span>
+              <span className="text-2xl sm:text-3xl">🎧</span>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
-                4. Luyện Nghe Audio
+                4. Luyện Nghe & Đoán Từ
               </h3>
-              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1">
-                Nghe phát âm chuẩn TTS rồi chọn nghĩa đúng mà không nhìn chữ trước.
+              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1 leading-relaxed">
+                Nghe giọng chuẩn bản xứ rồi chọn nghĩa đúng mà không nhìn chữ trước.
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
@@ -360,15 +382,15 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
           {/* Chế độ 5: Ghép Cặp (Matching Game) */}
           <div
             onClick={() => startMode('matching')}
-            className="p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-sm hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-4"
+            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
           >
             <div>
-              <span className="text-3xl">🧩</span>
+              <span className="text-2xl sm:text-3xl">🧩</span>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 5. Ghép Cặp Từ & Nghĩa
               </h3>
-              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1">
-                Lật mở các ô tương ứng giữa Từ vựng và Nghĩa tiếng Việt nhanh tay.
+              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1 leading-relaxed">
+                Lật mở các ô tương ứng giữa Từ vựng và Nghĩa tiếng Việt.
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
@@ -379,14 +401,14 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
           {/* Chế độ 6: Tập Viết Chữ Hán */}
           <div
             onClick={() => startMode('hanzi')}
-            className="p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-sm hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-4"
+            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
           >
             <div>
-              <span className="text-3xl">✍️</span>
+              <span className="text-2xl sm:text-3xl">✍️</span>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 6. Tập Viết Chữ Hán
               </h3>
-              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1">
+              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1 leading-relaxed">
                 Hanzi Writer hướng dẫn nét viết và chấm điểm viết tay từng nét.
               </p>
             </div>
@@ -398,14 +420,14 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
           {/* Chế độ 7: Speed Review (60 Giây) */}
           <div
             onClick={() => startMode('speed')}
-            className="p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-sm hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-4"
+            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
           >
             <div>
-              <span className="text-3xl">⚡</span>
+              <span className="text-2xl sm:text-3xl">⚡</span>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 7. Thử Thách 60 Giây
               </h3>
-              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1">
+              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1 leading-relaxed">
                 Đếm ngược 60 giây, trả lời nhanh càng nhiều từ vựng càng tốt!
               </p>
             </div>
@@ -417,15 +439,15 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
           {/* Chế độ 8: Ôn Thẻ Khó (Leech Review) */}
           <div
             onClick={() => startMode('leech')}
-            className="p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-sm hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-4"
+            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
           >
             <div>
-              <span className="text-3xl">🔥</span>
+              <span className="text-2xl sm:text-3xl">🔥</span>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 8. Luyện Thẻ Khó / Hay Quên
               </h3>
-              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1">
-                Tập trung đặc biệt vào các thẻ bạn hay bấm "Lại" để giải quyết triệt để.
+              <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1 leading-relaxed">
+                Tập trung đặc biệt vào các thẻ bạn hay quên để ghi nhớ sâu.
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
@@ -438,56 +460,63 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
     );
   }
 
-  // 2. MÀN HÌNH CHƠI: TRẮC NGHIỆM & LUYỆN NGHE & SPEED REVIEW
+  // 2. MÀN HÌNH CHƠI: TRẮC NGHIỆM & LUYỆN NGHE & SPEED REVIEW (1 CỘT DỌC CHUẨN NGÓN CÁI)
   if (mode === 'quiz' || mode === 'listening' || mode === 'speed') {
     const currentCard = practiceCards[currentIdx];
     return (
-      <div className="max-w-xl mx-auto space-y-6 pb-16">
-        
+      <div className="max-w-md mx-auto space-y-4 pb-20 select-none">
         {/* Thanh điều hướng quay lại & điểm số */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => setMode('menu')}
-            className="p-2 rounded-xl bg-white dark:bg-dark-card border border-kawaii-100 dark:border-dark-border text-xs font-bold flex items-center gap-1"
+            className="min-h-[44px] px-3 py-1.5 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-100 dark:border-dark-border text-xs font-bold flex items-center gap-1 active:scale-95 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </button>
 
-          <div className="flex items-center gap-3">
-            {mode === 'speed' && (
-              <span className="px-3 py-1 rounded-full bg-red-100 text-red-600 font-extrabold text-xs flex items-center gap-1">
-                <Timer className="w-3.5 h-3.5 animate-spin" /> {timeLeft}s
-              </span>
-            )}
+          {mode === 'speed' ? (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 text-orange-600 font-black text-xs">
+              <Timer className="w-4 h-4 animate-spin" />
+              <span>{timeLeft}s</span>
+            </div>
+          ) : (
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              Điểm: {score} / {practiceCards.length}
+              Câu {currentIdx + 1} / {practiceCards.length}
             </span>
+          )}
+
+          <div className="text-xs font-black text-purple-600 dark:text-purple-400">
+            Điểm: {score}
           </div>
         </div>
 
-        {/* Thẻ câu hỏi */}
-        <div className="p-8 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border shadow-kawaii text-center space-y-4">
-          <span className="text-xs font-bold text-gray-400">
-            {mode === 'listening' ? '🎧 Nghe và chọn nghĩa đúng' : `Câu ${currentIdx + 1} / ${practiceCards.length}`}
-          </span>
-
+        {/* Khối đề bài câu hỏi */}
+        <div className="p-6 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border shadow-kawaii text-center space-y-3">
           {mode === 'listening' ? (
-            <button
-              onClick={() => {
-                const lang = currentCard?.level?.startsWith('HSK') ? 'zh' : 'en';
-                ttsService.speak(currentCard.front, lang, currentCard.audioUrl);
-              }}
-              className="p-6 rounded-full bg-kawaii-100 dark:bg-dark-bg text-kawaii-600 hover:scale-105 transition-transform mx-auto shadow-sm"
-            >
-              <Volume2 className="w-10 h-10 animate-pulse" />
-            </button>
+            <div className="py-4 space-y-2">
+              <span className="text-xs font-bold text-gray-400">Nghe và chọn nghĩa đúng:</span>
+              <div>
+                <button
+                  onClick={() => {
+                    const lang = currentCard?.level?.startsWith('HSK') ? 'zh' : 'en';
+                    ttsService.speak(currentCard?.front || '', lang, currentCard?.audioUrl);
+                  }}
+                  className="w-16 h-16 rounded-full bg-kawaii-500 text-white shadow-kawaii flex items-center justify-center mx-auto active:scale-90 transition-transform"
+                  aria-label="Phát lại âm thanh"
+                >
+                  <Volume2 className="w-8 h-8" />
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400">Chạm để nghe lại</p>
+            </div>
           ) : (
             <div>
-              <h2 className="text-4xl sm:text-5xl font-black text-gray-900 dark:text-white font-hanzi">
+              <span className="text-xs font-bold text-gray-400">Nghĩa của từ này là gì?</span>
+              <h2 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white font-hanzi mt-1">
                 {currentCard?.front}
               </h2>
               {currentCard?.phonetic && (
-                <p className="text-sm font-bold text-kawaii-600 font-mono mt-1">
+                <p className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400 font-mono mt-1">
                   {currentCard.phonetic}
                 </p>
               )}
@@ -495,33 +524,37 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
           )}
         </div>
 
-        {/* 4 Đáp án lựa chọn */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {quizOptions.map((opt, i) => {
+        {/* 4 Đáp án dạng nút lớn xếp dọc - Chống bấm đúp nhầm */}
+        <div className="space-y-2.5 pt-1">
+          {quizOptions.map((opt, idx) => {
             const isSelected = selectedAnswer === opt;
             const isCorrect = opt === currentCard?.back;
 
-            let btnClass = 'bg-white dark:bg-dark-card border-kawaii-200 hover:border-kawaii-400';
+            let btnStyle = 'border-kawaii-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-gray-100';
             if (isAnswerChecked) {
-              if (isCorrect) btnClass = 'bg-emerald-50 border-emerald-500 text-emerald-700 font-bold';
-              else if (isSelected) btnClass = 'bg-red-50 border-red-500 text-red-700';
+              if (isCorrect) {
+                btnStyle = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold';
+              } else if (isSelected) {
+                btnStyle = 'border-red-500 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300';
+              } else {
+                btnStyle = 'opacity-40 border-gray-200 bg-gray-50';
+              }
             }
 
             return (
               <button
-                key={i}
+                key={idx}
                 disabled={isAnswerChecked}
                 onClick={() => handleSelectQuizAnswer(opt)}
-                className={`p-4 rounded-2xl border-2 text-left text-sm font-semibold transition-all btn-bounce ${btnClass} flex items-center justify-between shadow-sm`}
+                className={`w-full min-h-[54px] p-3.5 rounded-2xl border-2 text-sm font-bold text-left transition-all active:scale-95 shadow-xs flex items-center justify-between ${btnStyle}`}
               >
-                <span>{opt}</span>
-                {isAnswerChecked && isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-                {isAnswerChecked && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-500" />}
+                <span className="flex-1 pr-2">{opt}</span>
+                {isAnswerChecked && isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+                {isAnswerChecked && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-500 shrink-0" />}
               </button>
             );
           })}
         </div>
-
       </div>
     );
   }
@@ -530,41 +563,69 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
   if (mode === 'typing') {
     const currentCard = practiceCards[currentIdx];
     return (
-      <div className="max-w-xl mx-auto space-y-6 pb-16">
+      <div className="max-w-md mx-auto space-y-4 pb-20 select-none">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setMode('menu')}
-            className="p-2 rounded-xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1"
+            className="min-h-[44px] px-3 py-1.5 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1 active:scale-95 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </button>
-          <span className="text-xs font-bold text-kawaii-600">
+          <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
             Từ {currentIdx + 1} / {practiceCards.length}
+          </span>
+          <span className="text-xs font-black text-purple-600 dark:text-purple-400">
+            Điểm: {score}
           </span>
         </div>
 
-        <div className="p-8 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border shadow-kawaii text-center space-y-4">
-          <span className="text-xs font-bold text-gray-400">Nghĩa tiếng Việt:</span>
+        <div className="p-6 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border shadow-kawaii text-center space-y-3">
+          <span className="text-xs font-bold text-gray-400">Gõ từ tương ứng với nghĩa:</span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white font-display">
             {currentCard?.back}
           </h2>
           {currentCard?.example && (
-            <p className="text-xs text-gray-500 italic">"{currentCard.exampleTrans || currentCard.example}"</p>
+            <p className="text-xs text-gray-500 dark:text-dark-textMuted italic">
+              "{currentCard.exampleTrans || currentCard.example}"
+            </p>
           )}
 
-          <form onSubmit={handleCheckTyping} className="pt-4 space-y-3">
+          {/* Thanh phím nhanh chọn ký tự thanh điệu Pinyin trên điện thoại */}
+          <div className="pt-2">
+            <span className="text-[11px] font-semibold text-gray-400 block mb-1">
+              Phím thanh điệu Pinyin:
+            </span>
+            <div className="flex gap-1 overflow-x-auto pb-1.5 no-scrollbar">
+              {PINYIN_TONES.map((tone) => (
+                <button
+                  key={tone}
+                  type="button"
+                  onClick={() => handleInsertTone(tone)}
+                  className="min-w-[34px] h-9 px-1.5 rounded-xl bg-kawaii-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-kawaii-700 dark:text-kawaii-300 font-bold text-xs active:scale-90 shrink-0"
+                >
+                  {tone}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <form onSubmit={handleCheckTyping} className="pt-2 space-y-3">
             <input
+              ref={typingInputRef}
               type="text"
-              autoFocus
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
+              enterKeyHint="done"
               value={typedInput}
               onChange={(e) => setTypedInput(e.target.value)}
-              placeholder="Gõ từ vựng hoặc Pinyin tại đây..."
-              className="w-full p-3.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border-2 border-kawaii-300 dark:border-dark-border text-center text-lg font-bold outline-none focus:border-kawaii-500 dark:text-white"
+              placeholder="Gõ từ vựng hoặc Pinyin..."
+              className="w-full p-3.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border-2 border-kawaii-300 dark:border-dark-border text-center text-base sm:text-lg font-bold outline-none focus:border-kawaii-500 dark:text-white"
             />
 
             <button
               type="submit"
-              className="w-full py-3 rounded-2xl bg-kawaii-500 hover:bg-kawaii-600 text-white font-bold text-sm shadow-kawaii btn-bounce"
+              className="w-full py-3.5 min-h-[48px] rounded-2xl bg-kawaii-500 hover:bg-kawaii-600 text-white font-bold text-sm shadow-kawaii active:scale-95 transition-transform"
             >
               Kiểm tra đáp án
             </button>
@@ -581,7 +642,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               {typingResult === 'correct' ? (
                 <span>🎉 Chính xác tuyệt vời!</span>
               ) : (
-                <span>❌ Chưa đúng rồi! Đáp án: {currentCard?.front} ({currentCard?.phonetic})</span>
+                <span>❌ Chưa đúng! Đáp án: {currentCard?.front} ({currentCard?.phonetic})</span>
               )}
             </div>
           )}
@@ -590,37 +651,38 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
     );
   }
 
-  // 4. MÀN HÌNH CHƠI: GHÉP CẶP (MATCHING GAME)
+  // 4. MÀN HÌNH CHƠI: GHÉP CẶP (MATCHING GAME - LƯỚI 2 CỘT CHỐNG TRÀN)
   if (mode === 'matching') {
     return (
-      <div className="max-w-2xl mx-auto space-y-6 pb-16">
+      <div className="max-w-md mx-auto space-y-4 pb-20 select-none">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setMode('menu')}
-            className="p-2 rounded-xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1"
+            className="min-h-[44px] px-3 py-1.5 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1 active:scale-95 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </button>
-          <span className="text-xs font-bold text-kawaii-600">
+          <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
             Khớp được: {score} cặp
           </span>
         </div>
 
-        <div className="text-center space-y-1">
-          <h2 className="text-xl font-bold font-display text-gray-900 dark:text-white">
-            Ghép Ô Từ Vựng Với Nghĩa Tương Ứng 🧩
+        <div className="text-center space-y-0.5">
+          <h2 className="text-lg sm:text-xl font-bold font-display text-gray-900 dark:text-white">
+            Ghép Ô Từ Vựng Với Nghĩa 🧩
           </h2>
-          <p className="text-xs text-gray-500">Chạm vào một từ rồi chạm vào ô nghĩa tương ứng</p>
+          <p className="text-xs text-gray-500">Chạm 1 ô từ rồi chạm ô nghĩa tương ứng</p>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+        {/* Lưới 2 Cột trên Mobile chống tràn ngang */}
+        <div className="grid grid-cols-2 gap-2.5 pt-1">
           {matchingCards.map((item, idx) => {
             const isSelected = selectedMatch === idx;
             if (item.isMatched) {
               return (
                 <div
                   key={item.id}
-                  className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 text-emerald-600 text-xs font-bold text-center opacity-40 select-none"
+                  className="p-3.5 min-h-[58px] rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 text-emerald-600 text-xs font-bold text-center opacity-30 select-none flex items-center justify-center break-words"
                 >
                   ✓ {item.text}
                 </div>
@@ -631,9 +693,9 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               <button
                 key={item.id}
                 onClick={() => handleMatchCardClick(idx)}
-                className={`p-4 rounded-2xl border-2 text-xs font-bold text-center transition-all btn-bounce shadow-sm flex items-center justify-center min-h-[72px] ${
+                className={`p-3.5 min-h-[58px] rounded-2xl border-2 text-xs font-bold text-center transition-all active:scale-95 shadow-xs flex items-center justify-center break-words ${
                   isSelected
-                    ? 'border-kawaii-500 bg-kawaii-50 dark:bg-dark-bg text-kawaii-600 scale-105 shadow-kawaii'
+                    ? 'border-kawaii-500 bg-kawaii-50 dark:bg-dark-bg text-kawaii-600 scale-102 shadow-kawaii'
                     : 'border-kawaii-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-gray-200'
                 }`}
               >
@@ -650,26 +712,26 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
   if (mode === 'hanzi') {
     const currentCard = practiceCards[currentIdx];
     return (
-      <div className="max-w-md mx-auto space-y-6 pb-16">
+      <div className="max-w-md mx-auto space-y-4 pb-20 select-none">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setMode('menu')}
-            className="p-2 rounded-xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1"
+            className="min-h-[44px] px-3 py-1.5 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1 active:scale-95 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </button>
-          <span className="text-xs font-bold text-kawaii-600">
+          <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
             Từ {currentIdx + 1} / {practiceCards.length}
           </span>
         </div>
 
-        <div className="p-6 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border shadow-kawaii text-center space-y-4">
+        <div className="p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border shadow-kawaii text-center space-y-3">
           <div>
             <h3 className="text-2xl font-black text-gray-900 dark:text-white font-hanzi">
               {currentCard?.front}
             </h3>
             <p className="text-xs font-bold text-kawaii-600 font-mono">{currentCard?.phonetic}</p>
-            <p className="text-xs text-gray-500 mt-1">Nghĩa: {currentCard?.back}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Nghĩa: {currentCard?.back}</p>
           </div>
 
           <HanziWriterCanvas characters={currentCard?.front || ''} size={180} />
@@ -678,14 +740,14 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
             <button
               onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
               disabled={currentIdx === 0}
-              className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-dark-bg text-xs font-bold disabled:opacity-40"
+              className="px-4 py-2.5 min-h-[44px] rounded-xl bg-gray-100 dark:bg-dark-bg text-xs font-bold disabled:opacity-30 active:scale-95"
             >
               Từ trước
             </button>
             <button
               onClick={() => setCurrentIdx((i) => Math.min(practiceCards.length - 1, i + 1))}
               disabled={currentIdx >= practiceCards.length - 1}
-              className="px-4 py-2 rounded-xl bg-kawaii-500 text-white text-xs font-bold disabled:opacity-40"
+              className="px-4 py-2.5 min-h-[44px] rounded-xl bg-kawaii-500 text-white text-xs font-bold disabled:opacity-30 active:scale-95 shadow-kawaii"
             >
               Từ tiếp theo
             </button>
@@ -699,11 +761,11 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
   if (mode === 'leech') {
     const currentCard = practiceCards[currentIdx];
     return (
-      <div className="max-w-md mx-auto space-y-6 pb-16">
+      <div className="max-w-md mx-auto space-y-4 pb-20 select-none">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setMode('menu')}
-            className="p-2 rounded-xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1"
+            className="min-h-[44px] px-3 py-1.5 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1 active:scale-95 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </button>
@@ -712,16 +774,16 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
           </span>
         </div>
 
-        <div className="p-8 rounded-3xl bg-red-50/40 dark:bg-dark-card border-2 border-red-200 dark:border-red-900/50 shadow-kawaii text-center space-y-4">
+        <div className="p-6 rounded-3xl bg-red-50/50 dark:bg-dark-card border-2 border-red-200 dark:border-red-900/50 shadow-kawaii text-center space-y-3.5">
           <span className="text-xs font-bold text-red-500">
             ⚠️ Thẻ này đã từng bị bấm quên {currentCard?.schedule?.lapses || 1} lần!
           </span>
 
-          <h2 className="text-4xl font-black text-gray-900 dark:text-white font-hanzi">
+          <h2 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white font-hanzi">
             {currentCard?.front}
           </h2>
-          <p className="text-sm font-bold text-kawaii-600 font-mono">{currentCard?.phonetic}</p>
-          <h3 className="text-2xl font-bold text-gray-800 dark:text-white font-display pt-2">
+          <p className="text-xs sm:text-sm font-bold text-kawaii-600 font-mono">{currentCard?.phonetic}</p>
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white font-display pt-1">
             {currentCard?.back}
           </h3>
 
@@ -731,7 +793,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
             </p>
           )}
 
-          <div className="pt-4">
+          <div className="pt-2">
             <button
               onClick={() => {
                 if (currentIdx + 1 < practiceCards.length) {
@@ -741,9 +803,9 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
                   setMode('menu');
                 }
               }}
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-red-500 to-rose-500 text-white font-bold text-xs shadow-md btn-bounce"
+              className="w-full py-3.5 min-h-[48px] rounded-2xl bg-gradient-to-r from-red-500 to-rose-500 text-white font-bold text-xs shadow-md active:scale-95"
             >
-              Đã ghi nhớ lại từ này! Tiếp tục →
+              Đã nhớ lại từ này! Tiếp tục →
             </button>
           </div>
         </div>

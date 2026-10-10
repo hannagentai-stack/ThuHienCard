@@ -28,6 +28,19 @@ export const HanziWriterCanvas: React.FC<HanziWriterCanvasProps> = ({
 
   const currentChar = hanziList[selectedCharIndex] || '';
 
+  // Tính toán kích thước co giãn theo màn hình điện thoại (tối đa bằng size hoặc vừa khung 360px)
+  const [responsiveSize, setResponsiveSize] = useState(size);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const availableWidth = window.innerWidth - 64;
+      setResponsiveSize(Math.min(size, Math.max(160, availableWidth)));
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [size]);
+
   useEffect(() => {
     if (!currentChar || !containerRef.current) return;
 
@@ -37,8 +50,8 @@ export const HanziWriterCanvas: React.FC<HanziWriterCanvasProps> = ({
 
     try {
       const writer = HanziWriter.create(containerRef.current, currentChar, {
-        width: size,
-        height: size,
+        width: responsiveSize,
+        height: responsiveSize,
         padding: 10,
         showOutline,
         strokeAnimationSpeed: 1.2,
@@ -64,7 +77,7 @@ export const HanziWriterCanvas: React.FC<HanziWriterCanvasProps> = ({
     return () => {
       writerRef.current = null;
     };
-  }, [currentChar, size, showOutline, isQuizzing]);
+  }, [currentChar, responsiveSize, showOutline, isQuizzing]);
 
   const handleAnimate = () => {
     setIsQuizzing(false);
@@ -112,7 +125,7 @@ export const HanziWriterCanvas: React.FC<HanziWriterCanvasProps> = ({
               key={idx}
               type="button"
               onClick={() => { setSelectedCharIndex(idx); setIsQuizzing(false); }}
-              className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-base font-bold rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center ${
                 selectedCharIndex === idx
                   ? 'bg-kawaii-500 text-white shadow-sm'
                   : 'text-gray-600 dark:text-gray-300 hover:text-kawaii-500'
@@ -125,7 +138,7 @@ export const HanziWriterCanvas: React.FC<HanziWriterCanvasProps> = ({
       )}
 
       {/* Khung vẽ nét chữ Hán với lưới ô vuông mễ tự (米) */}
-      <div className="relative rounded-2xl bg-white dark:bg-dark-card p-2 shadow-inner border border-kawaii-100 dark:border-dark-border overflow-hidden">
+      <div className="relative rounded-2xl bg-white dark:bg-dark-card p-2 shadow-inner border border-kawaii-100 dark:border-dark-border overflow-hidden select-none">
         
         {/* Đường kẻ mờ ô chữ mễ tự */}
         <svg
@@ -138,48 +151,53 @@ export const HanziWriterCanvas: React.FC<HanziWriterCanvasProps> = ({
           <line x1="0" y1="50%" x2="100%" y2="50%" strokeWidth="1" />
         </svg>
 
-        <div ref={containerRef} className="relative z-10 cursor-crosshair" />
+        {/* Khung chứa Canvas - QUAN TRỌNG: touch-action: none để không cuộn trang khi vẽ */}
+        <div
+          ref={containerRef}
+          style={{ touchAction: 'none' }}
+          className="relative z-10 cursor-crosshair touch-none"
+        />
 
         {/* Thông báo điểm chấm tập viết */}
         {quizScore !== null && (
-          <div className="absolute inset-0 bg-white/90 dark:bg-dark-card/90 flex flex-col items-center justify-center z-20 animate-fade-in text-center p-3">
-            <span className="text-3xl">🎉</span>
-            <span className="text-base font-bold text-gray-800 dark:text-white mt-1">
+          <div className="absolute inset-0 bg-white/95 dark:bg-dark-card/95 flex flex-col items-center justify-center z-20 animate-fade-in text-center p-3">
+            <span className="text-4xl animate-bounce">🎉</span>
+            <span className="text-base font-extrabold text-gray-800 dark:text-white mt-1">
               Đạt {quizScore}% độ chuẩn!
             </span>
             <button
               onClick={handleReset}
-              className="mt-2 px-3 py-1 bg-kawaii-500 text-white rounded-lg text-xs font-bold shadow-sm"
+              className="mt-2.5 px-4 py-2 min-h-[44px] bg-kawaii-500 text-white rounded-xl text-xs font-bold shadow-kawaii active:scale-95"
             >
-              Viết lại
+              Viết lại nét này
             </button>
           </div>
         )}
       </div>
 
-      {/* Thanh điều khiển nét viết */}
-      <div className="flex items-center gap-1.5 mt-2.5">
+      {/* Thanh điều khiển nét viết - Chuẩn vùng ngón cái 44px */}
+      <div className="flex items-center gap-2 mt-3">
         <button
           type="button"
           onClick={handleAnimate}
           title="Xem thứ tự nét viết"
-          className="p-1.5 rounded-xl bg-white dark:bg-dark-card hover:bg-kawaii-50 text-kawaii-600 dark:text-kawaii-400 border border-kawaii-200 dark:border-dark-border text-xs flex items-center gap-1 font-semibold transition-all"
+          className="px-3 py-2 min-h-[44px] rounded-xl bg-white dark:bg-dark-card hover:bg-kawaii-50 text-kawaii-600 dark:text-kawaii-400 border border-kawaii-200 dark:border-dark-border text-xs flex items-center gap-1.5 font-bold transition-all active:scale-95"
         >
-          <Play className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Phát nét</span>
+          <Play className="w-4 h-4" />
+          <span>Phát nét</span>
         </button>
 
         <button
           type="button"
           onClick={handleToggleQuiz}
           title={isQuizzing ? 'Hủy tập viết' : 'Tập viết từng nét'}
-          className={`p-1.5 rounded-xl border text-xs flex items-center gap-1 font-semibold transition-all ${
+          className={`px-3 py-2 min-h-[44px] rounded-xl border text-xs flex items-center gap-1.5 font-bold transition-all active:scale-95 ${
             isQuizzing
               ? 'bg-rose-500 text-white border-rose-600 shadow-sm'
               : 'bg-white dark:bg-dark-card hover:bg-kawaii-50 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-dark-border'
           }`}
         >
-          <PenTool className="w-3.5 h-3.5" />
+          <PenTool className="w-4 h-4" />
           <span>{isQuizzing ? 'Đang tập viết' : 'Tập viết'}</span>
         </button>
 
@@ -187,18 +205,20 @@ export const HanziWriterCanvas: React.FC<HanziWriterCanvasProps> = ({
           type="button"
           onClick={() => setShowOutline(!showOutline)}
           title={showOutline ? 'Ẩn nét mờ' : 'Hiện nét mờ'}
-          className="p-1.5 rounded-xl bg-white dark:bg-dark-card hover:bg-kawaii-50 text-gray-500 border border-gray-200 dark:border-dark-border text-xs transition-all"
+          className="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-dark-card hover:bg-kawaii-50 text-gray-500 border border-gray-200 dark:border-dark-border text-xs transition-all active:scale-95"
+          aria-label={showOutline ? 'Ẩn nét mờ' : 'Hiện nét mờ'}
         >
-          {showOutline ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          {showOutline ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
         </button>
 
         <button
           type="button"
           onClick={handleReset}
           title="Làm lại"
-          className="p-1.5 rounded-xl bg-white dark:bg-dark-card hover:bg-kawaii-50 text-gray-500 border border-gray-200 dark:border-dark-border text-xs transition-all"
+          className="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-dark-card hover:bg-kawaii-50 text-gray-500 border border-gray-200 dark:border-dark-border text-xs transition-all active:scale-95"
+          aria-label="Làm lại"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
+          <RotateCcw className="w-4 h-4" />
         </button>
       </div>
 
