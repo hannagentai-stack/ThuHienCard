@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  webflashcard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sakura_flashcard
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - JWT_SECRET=sakura_super_secret_jwt_key_2026_production
+      - DATABASE_URL=file:./dev.db
+    volumes:
+      - flashcard_data:/app/server/prisma
+    restart: unless-stopped
+
+volumes:
+  flashcard_data:

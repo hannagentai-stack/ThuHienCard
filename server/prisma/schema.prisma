@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String      @id @default(uuid())
+  username      String      @unique
+  passwordHash  String
+  displayName   String?
+  avatar        String      @default("bunny_pink") // Mascot ID: bunny_pink, kitty_purple, star_gold, boba_mint
+  dailyGoal     Int         @default(20)           // Số thẻ mục tiêu/ngày
+  streakCount   Int         @default(0)            // Chuỗi ngày hiện tại
+  longestStreak Int         @default(0)            // Kỷ lục chuỗi ngày
+  streakFreezes Int         @default(2)            // Số lượt đóng băng chuỗi
+  lastStudyDate String?                            // Định dạng YYYY-MM-DD
+  xp            Int         @default(0)            // Điểm kinh nghiệm
+  level         Int         @default(1)            // Cấp độ người học
+  settingsJson  String?                            // Cấu hình âm thanh, retention, v.v.
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  decks         Deck[]
+  reviewLogs    ReviewLog[]
+  userBadges    UserBadge[]
+}
+
+model Deck {
+  id           String    @id @default(uuid())
+  userId       String
+  title        String
+  description  String?
+  language     String    // "zh" (tiếng Trung) | "en" (tiếng Anh)
+  icon         String?   // Emoji hoặc icon tên
+  color        String?   // Mã màu: #FF5C9E, #A855F7, #38BDF8, etc.
+  isArchived   Boolean   @default(false)
+  settingsJson String?   // Cài đặt FSRS, số thẻ mới/ngày, v.v.
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  isDeleted    Boolean   @default(false)
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards        Card[]
+}
+
+model Card {
+  id           String        @id @default(uuid())
+  deckId       String
+  front        String        // Mặt trước: Hán tự hoặc từ tiếng Anh
+  back         String        // Mặt sau: Nghĩa tiếng Việt
+  phonetic     String?       // Pinyin hoặc phiên âm IPA
+  wordType     String?       // Danh từ, Động từ, Tính từ...
+  example      String?       // Câu ví dụ
+  exampleTrans String?       // Dịch câu ví dụ
+  notes        String?       // Mẹo nhớ, ngữ pháp
+  tagsJson     String?       // JSON: ["HSK1", "Giao tiếp"]
+  imageUrl     String?       // Đường dẫn ảnh
+  audioUrl     String?       // Đường dẫn audio hoặc cached TTS
+  level        String?       // HSK1..6 hoặc A1..C2
+  cardType     String        @default("standard") // "standard" hoặc "cloze"
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  isDeleted    Boolean       @default(false)
+
+  deck         Deck          @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  schedule     CardSchedule?
+  reviewLogs   ReviewLog[]
+}
+
+model CardSchedule {
+  id            String    @id @default(uuid())
+  cardId        String    @unique
+  state         String    @default("new") // "new", "learning", "review", "relearning"
+  due           DateTime  @default(now())
+  stability     Float     @default(0.0)   // FSRS Stability S (ngày)
+  difficulty    Float     @default(0.0)   // FSRS Difficulty D (1.0 - 10.0)
+  elapsedDays   Int       @default(0)
+  scheduledDays Int       @default(0)
+  reps          Int       @default(0)     // Số lần đã ôn
+  lapses        Int       @default(0)     // Số lần bấm quên (Again)
+  lastReview    DateTime?
+  isSuspended   Boolean   @default(false)
+
+  card          Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}
+
+model ReviewLog {
+  id           String   @id @default(uuid())
+  cardId       String
+  userId       String
+  rating       Int      // 1: Again, 2: Hard, 3: Good, 4: Easy
+  state        String   // Trạng thái lúc ôn
+  due          DateTime // Ngày đến hạn tiếp theo
+  stability    Float
+  difficulty   Float
+  reviewTimeMs Int      @default(0)
+  reviewedAt   DateTime @default(now())
+
+  card         Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserBadge {
+  id         String   @id @default(uuid())
+  userId     String
+  badgeId    String   // "streak_7", "cards_100", "first_deck", v.v.
+  unlockedAt DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

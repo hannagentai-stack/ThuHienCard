@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30" fill="#FFE6EF"/>
+  <ellipse cx="23" cy="18" rx="5" ry="14" fill="#FF5C9E" transform="rotate(-12 23 18)"/>
+  <ellipse cx="23" cy="18" rx="2.5" ry="9" fill="#FFF5F8" transform="rotate(-12 23 18)"/>
+  <ellipse cx="41" cy="18" rx="5" ry="14" fill="#FF5C9E" transform="rotate(12 41 18)"/>
+  <ellipse cx="41" cy="18" rx="2.5" ry="9" fill="#FFF5F8" transform="rotate(12 41 18)"/>
+  <circle cx="32" cy="38" r="18" fill="#FFFFFF"/>
+  <!-- Rosy cheeks -->
+  <circle cx="21" cy="42" r="3.5" fill="#FFA8CA" opacity="0.8"/>
+  <circle cx="43" cy="42" r="3.5" fill="#FFA8CA" opacity="0.8"/>
+  <!-- Eyes -->
+  <ellipse cx="25" cy="36" rx="2" ry="3" fill="#3A1C28"/>
+  <circle cx="26" cy="35" r="1" fill="#FFFFFF"/>
+  <ellipse cx="39" cy="36" rx="2" ry="3" fill="#3A1C28"/>
+  <circle cx="40" cy="35" r="1" fill="#FFFFFF"/>
+  <!-- Cute mouth -->
+  <path d="M 30 40 Q 32 42 34 40" stroke="#3A1C28" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+</svg>
