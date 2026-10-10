@@ -32,10 +32,28 @@ export function App() {
     checkAuth();
   }, [initTheme, checkAuth]);
 
-  // Phím tắt toàn cục (? mở trợ giúp, Esc đóng modal)
+  // Xử lý nút Back của điện thoại (Android back / iOS swipe back) để đóng modal hoặc thoát ôn tập
+  useEffect(() => {
+    const handlePopState = () => {
+      if (isAuthOpen) {
+        setIsAuthOpen(false);
+      } else if (isShortcutsOpen) {
+        setIsShortcutsOpen(false);
+      } else if (isTourOpen) {
+        setIsTourOpen(false);
+      } else if (activeTab === 'study') {
+        setSelectedStudyDeckId(null);
+        setActiveTab('decks');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isAuthOpen, isShortcutsOpen, isTourOpen, activeTab]);
+
+  // Phím tắt toàn cục (? mở trợ giúp, Esc đóng modal trên máy tính)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Không kích hoạt khi đang gõ vào input hoặc textarea
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
         return;
       }
@@ -56,17 +74,34 @@ export function App() {
   const handleOpenAuth = (mode: 'login' | 'register' = 'login') => {
     setAuthMode(mode);
     setIsAuthOpen(true);
+    window.history.pushState({ modal: 'auth' }, '');
+  };
+
+  const handleOpenShortcuts = () => {
+    setIsShortcutsOpen(true);
+    window.history.pushState({ modal: 'shortcuts' }, '');
+  };
+
+  const handleOpenTour = () => {
+    setIsTourOpen(true);
+    window.history.pushState({ modal: 'tour' }, '');
+  };
+
+  const handleStartStudy = (deckId: string | null = null) => {
+    setSelectedStudyDeckId(deckId);
+    setActiveTab('study');
+    window.history.pushState({ view: 'study' }, '');
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-candy-cream dark:bg-dark-bg transition-colors duration-300">
+    <div className="min-h-[100dvh] flex flex-col bg-candy-cream dark:bg-dark-bg transition-colors duration-300">
       
-      {/* 1. Header trên cùng */}
+      {/* 1. Header trên cùng (Tự động ẩn trong Study Mode) */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenAuth={handleOpenAuth}
-        onOpenTour={() => setIsTourOpen(true)}
+        onOpenTour={handleOpenTour}
       />
 
       {/* 2. Thân trang: Sidebar Desktop + Nội dung chính */}
@@ -74,10 +109,14 @@ export function App() {
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          onOpenShortcuts={() => setIsShortcutsOpen(true)}
+          onOpenShortcuts={handleOpenShortcuts}
         />
 
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 max-w-5xl mx-auto w-full pb-24 lg:pb-12">
+        <main className={`flex-1 w-full max-w-5xl mx-auto transition-all ${
+          activeTab === 'study'
+            ? 'p-0 pb-0'
+            : 'px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 lg:pb-12'
+        }`}>
           {activeTab === 'home' && (
             <LandingPage
               onOpenAuth={handleOpenAuth}
@@ -88,14 +127,11 @@ export function App() {
 
           {activeTab === 'profile' && <ProfilePage />}
 
-          {activeTab === 'guide' && <GuidePage onOpenTour={() => setIsTourOpen(true)} />}
+          {activeTab === 'guide' && <GuidePage onOpenTour={handleOpenTour} />}
 
           {activeTab === 'decks' && (
             <DecksPage
-              onStartStudy={(deckId) => {
-                setSelectedStudyDeckId(deckId);
-                setActiveTab('study');
-              }}
+              onStartStudy={(deckId) => handleStartStudy(deckId)}
             />
           )}
 
@@ -111,10 +147,7 @@ export function App() {
 
           {activeTab === 'practice' && (
             <PracticePage
-              onStartSRS={() => {
-                setSelectedStudyDeckId(null);
-                setActiveTab('study');
-              }}
+              onStartSRS={() => handleStartStudy(null)}
             />
           )}
 
@@ -122,22 +155,22 @@ export function App() {
         </main>
       </div>
 
-      {/* 3. Nút cố định '?' ở góc dưới mở bảng phím tắt */}
+      {/* 3. Nút cố định '?' chỉ hiện trên Desktop Keyboard (ẩn hoàn toàn trên Mobile để giải phóng vùng ngón cái) */}
       <button
-        onClick={() => setIsShortcutsOpen(true)}
+        onClick={handleOpenShortcuts}
         aria-label="Mở bảng phím tắt và trợ giúp"
-        className="fixed bottom-20 lg:bottom-6 right-6 z-30 p-3.5 rounded-full bg-white dark:bg-dark-card hover:bg-kawaii-50 dark:hover:bg-dark-cardHover border-2 border-kawaii-300 dark:border-dark-border shadow-kawaii text-kawaii-600 dark:text-kawaii-400 btn-bounce flex items-center justify-center"
+        className="hidden lg:flex fixed bottom-6 right-6 z-30 p-3.5 rounded-full bg-white dark:bg-dark-card hover:bg-kawaii-50 dark:hover:bg-dark-cardHover border-2 border-kawaii-300 dark:border-dark-border shadow-kawaii text-kawaii-600 dark:text-kawaii-400 btn-bounce items-center justify-center"
       >
         <HelpCircle className="w-6 h-6" />
       </button>
 
-      {/* 4. Bottom Tab Bar trên thiết bị di động */}
+      {/* 4. Bottom Tab Bar trên thiết bị di động (Tự ẩn khi đang học thẻ) */}
       <BottomTabBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
 
-      {/* 5. Modal Đăng nhập / Đăng ký */}
+      {/* 5. Modal Đăng nhập / Đăng ký (Hỗ trợ Bottom Sheet di động) */}
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}

@@ -7,15 +7,67 @@
     --color-primary: #FF5C9E;
     --color-primary-soft: #FFD6E8;
     --color-primary-candy: #FF8FB8;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
   }
 
   html {
-    -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: rgba(255, 92, 158, 0.2);
+    /* Chống giật trang khi bàn phím xuất hiện */
+    height: -webkit-fill-available;
+    scroll-behavior: smooth;
   }
 
   body {
     overflow-x: hidden;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    /* Chống kéo trang quá đà gây giật lag trên mobile */
+    overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+
+  /* Bỏ độ trễ 300ms và double-tap zoom cho mọi phần tử tương tác */
+  button, a, input, select, textarea, [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Ngăn chặn iOS Safari tự phóng to khi người dùng bấm vào ô nhập */
+  @media screen and (max-width: 768px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+/* Các tiện ích Safe Area cho tai thỏ và thanh vuốt Home trên mobile */
+.safe-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.safe-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-pl {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.safe-pr {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.safe-mb {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Vùng bấm tối thiểu chuẩn ngón cái (44x44px) */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Hiệu ứng 3D Lật Thẻ */
@@ -38,34 +90,57 @@
 
 /* Glassmorphism Kawaii */
 .glass-card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 214, 232, 0.6);
+  border: 1px solid rgba(255, 214, 232, 0.65);
 }
 
 .dark .glass-card {
-  background: rgba(31, 25, 43, 0.85);
+  background: rgba(31, 25, 43, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(58, 45, 82, 0.7);
+  border: 1px solid rgba(58, 45, 82, 0.75);
 }
 
-/* Nút bấm có hiệu ứng nảy (Bouncy button) */
+/* Nút bấm có hiệu ứng nảy (Bouncy button) - Tách biệt hover máy tính và active cảm ứng */
 .btn-bounce {
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+  will-change: transform;
 }
-.btn-bounce:hover {
-  transform: translateY(-2px) scale(1.02);
+
+/* Chỉ áp dụng hiệu ứng hover khi thiết bị có chuột thực thụ (tránh dính hover trên cảm ứng) */
+@media (hover: hover) and (pointer: fine) {
+  .btn-bounce:hover {
+    transform: translateY(-2px) scale(1.02);
+  }
 }
+
+/* Phản hồi cảm ứng tức thì khi ngón tay chạm vào (:active) */
 .btn-bounce:active {
   transform: translateY(1px) scale(0.96);
 }
 
+/* Hoạt họa Bottom Sheet trên mobile */
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-bottom-sheet {
+  animation: slideUpSheet 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Tùy chỉnh thanh cuộn màu hồng xinh xắn */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {

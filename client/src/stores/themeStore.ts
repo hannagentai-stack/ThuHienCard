@@ -6,18 +6,24 @@ interface ThemeState {
   initTheme: () => void;
 }
 
+const updateThemeMeta = (isDark: boolean) => {
+  if (typeof document === 'undefined') return;
+  const meta = document.getElementById('theme-color-meta');
+  if (meta) {
+    meta.setAttribute('content', isDark ? '#14101A' : '#FF5C9E');
+  }
+};
+
 export const useThemeStore = create<ThemeState>((set, get) => ({
   isDark: false,
 
   initTheme: () => {
-    // 1. Kiểm tra lựa chọn đã lưu trong localStorage
     const savedTheme = localStorage.getItem('theme');
     let isDark = false;
 
     if (savedTheme) {
       isDark = savedTheme === 'dark';
     } else {
-      // 2. Tự động theo cài đặt hệ điều hành người dùng
       isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
 
@@ -27,6 +33,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       document.documentElement.classList.remove('dark');
     }
 
+    updateThemeMeta(isDark);
     set({ isDark });
   },
 
@@ -39,6 +46,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
+
+    updateThemeMeta(nextDark);
     set({ isDark: nextDark });
   },
 }));

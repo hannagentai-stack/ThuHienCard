@@ -49,7 +49,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setMascotMood('happy');
       setTimeout(() => {
         onClose();
-      }, 400);
+      }, 350);
     } else {
       setMascotMood('shy');
     }
@@ -69,43 +69,47 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-md bg-white dark:bg-dark-card rounded-3xl shadow-kawaii-lg border-2 border-kawaii-200 dark:border-dark-border p-6 sm:p-8 overflow-hidden">
-        
-        {/* Nền trang trí hoa anh đào nhạt */}
-        <div className="absolute -top-12 -right-12 w-32 h-32 bg-kawaii-100 dark:bg-dark-cardHover rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-purple-100 dark:bg-dark-cardHover rounded-full blur-2xl pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+      {/* Lớp nền bấm ra ngoài để đóng */}
+      <div className="fixed inset-0 -z-10" onClick={onClose} />
 
-        {/* Nút đóng */}
+      <div
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 20px)' }}
+        className="relative w-full max-w-md bg-white dark:bg-dark-card rounded-t-3xl sm:rounded-3xl shadow-kawaii-lg border-t-2 sm:border-2 border-kawaii-200 dark:border-dark-border p-5 sm:p-8 max-h-[90dvh] overflow-y-auto animate-bottom-sheet sm:animate-none"
+      >
+        {/* Thanh kéo vuốt Bottom Sheet trên Mobile */}
+        <div className="w-12 h-1.5 rounded-full bg-kawaii-200 dark:bg-dark-border mx-auto mb-3 sm:hidden" />
+
+        {/* Nút đóng lớn chuẩn chạm ngón cái */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-kawaii-50 dark:hover:bg-dark-cardHover transition-colors"
-          aria-label="Đóng"
+          className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-kawaii-50 dark:hover:bg-dark-cardHover transition-colors touch-manipulation"
+          aria-label="Đóng cửa sổ"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Mascot tương tác biểu cảm */}
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="p-3 bg-kawaii-50 dark:bg-dark-bg/60 rounded-full mb-2 border border-kawaii-100 dark:border-dark-border">
-            <Mascot id="bunny_pink" mood={mascotMood} size="md" />
+        <div className="flex flex-col items-center text-center mb-4 sm:mb-6">
+          <div className="p-2.5 bg-kawaii-50 dark:bg-dark-bg/60 rounded-full mb-1.5 border border-kawaii-100 dark:border-dark-border">
+            <Mascot id="bunny_pink" mood={mascotMood} size="sm" />
           </div>
-          <h2 className="text-2xl font-bold font-display text-gray-800 dark:text-dark-text">
+          <h2 className="text-xl sm:text-2xl font-bold font-display text-gray-800 dark:text-dark-text">
             {mode === 'login' ? 'Chào mừng bạn trở lại! 🌸' : 'Gia nhập Sakura Flashcard ✨'}
           </h2>
-          <p className="text-sm text-gray-500 dark:text-dark-textMuted mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-dark-textMuted mt-0.5">
             {mode === 'login'
-              ? 'Đăng nhập để tiếp tục chuỗi ngày học rực rỡ'
+              ? 'Đăng nhập để duy trì chuỗi học rực rỡ'
               : 'Tạo tài khoản siêu nhanh, không cần email'}
           </p>
         </div>
 
         {/* Tab chuyển đổi Đăng nhập / Đăng ký */}
-        <div className="flex bg-kawaii-100 dark:bg-dark-bg p-1 rounded-2xl mb-6">
+        <div className="flex bg-kawaii-100 dark:bg-dark-bg p-1 rounded-2xl mb-4">
           <button
             type="button"
             onClick={() => { setMode('login'); setError(null); }}
-            className={`flex-1 py-2 text-sm font-semibold rounded-xl transition-all duration-200 ${
+            className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all duration-200 min-h-[44px] ${
               mode === 'login'
                 ? 'bg-white dark:bg-dark-card text-kawaii-600 dark:text-kawaii-400 shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-kawaii-500'
@@ -116,7 +120,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <button
             type="button"
             onClick={() => { setMode('register'); setError(null); }}
-            className={`flex-1 py-2 text-sm font-semibold rounded-xl transition-all duration-200 ${
+            className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all duration-200 min-h-[44px] ${
               mode === 'register'
                 ? 'bg-white dark:bg-dark-card text-kawaii-600 dark:text-kawaii-400 shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-kawaii-500'
@@ -128,14 +132,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Thông báo lỗi nếu có */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-600 dark:text-red-300 text-sm flex items-center gap-2">
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-600 dark:text-red-300 text-xs sm:text-sm flex items-center gap-2">
             <span>⚠️</span>
             <span>{error}</span>
           </div>
         )}
 
         {/* Form nhập liệu */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           {mode === 'register' && (
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -143,12 +147,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </label>
               <input
                 type="text"
+                autoComplete="nickname"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 onFocus={() => setMascotMood('studying')}
                 onBlur={() => setMascotMood('normal')}
                 placeholder="Ví dụ: Tiểu Thỏ, Bé Mèo..."
-                className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border focus:border-kawaii-500 focus:ring-2 focus:ring-kawaii-300/40 text-sm outline-none transition-all dark:text-white"
+                className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border focus:border-kawaii-500 focus:ring-2 focus:ring-kawaii-300/40 text-base outline-none transition-all dark:text-white"
               />
             </div>
           )}
@@ -160,12 +165,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <input
               type="text"
               required
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onFocus={() => setMascotMood('studying')}
               onBlur={() => setMascotMood('normal')}
-              placeholder="Nhập tên đăng nhập (viết liền không dấu)"
-              className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border focus:border-kawaii-500 focus:ring-2 focus:ring-kawaii-300/40 text-sm outline-none transition-all dark:text-white"
+              placeholder="Tên tài khoản (viết liền)"
+              className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border focus:border-kawaii-500 focus:ring-2 focus:ring-kawaii-300/40 text-base outline-none transition-all dark:text-white"
             />
           </div>
 
@@ -182,54 +191,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onFocus={() => setMascotMood('winking')}
                 onBlur={() => setMascotMood('normal')}
-                placeholder="Nhập mật khẩu của bạn"
-                className="w-full px-4 py-2.5 pr-11 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border focus:border-kawaii-500 focus:ring-2 focus:ring-kawaii-300/40 text-sm outline-none transition-all dark:text-white"
+                placeholder="Nhập mật khẩu"
+                className="w-full px-4 py-3 pr-12 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border focus:border-kawaii-500 focus:ring-2 focus:ring-kawaii-300/40 text-base outline-none transition-all dark:text-white"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-kawaii-500 transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-gray-400 hover:text-kawaii-500 transition-colors"
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
           </div>
 
           {mode === 'login' && (
-            <div className="flex items-center justify-between text-xs pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-gray-600 dark:text-gray-400">
+            <div className="flex items-center justify-between text-xs pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-gray-600 dark:text-gray-400 min-h-[36px]">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-kawaii-300 text-kawaii-500 focus:ring-kawaii-400"
+                  className="w-4 h-4 rounded border-kawaii-300 text-kawaii-500 focus:ring-kawaii-400"
                 />
                 <span>Ghi nhớ đăng nhập</span>
               </label>
             </div>
           )}
 
-          {/* Nút Submit */}
+          {/* Nút Submit chuẩn vùng ngón cái */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 mt-2 rounded-2xl bg-gradient-to-r from-kawaii-400 to-kawaii-500 hover:from-kawaii-500 hover:to-kawaii-600 text-white font-bold text-sm shadow-kawaii btn-bounce flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-3.5 mt-2 rounded-2xl bg-gradient-to-r from-kawaii-400 to-kawaii-500 hover:from-kawaii-500 hover:to-kawaii-600 text-white font-bold text-base shadow-kawaii active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 min-h-[48px]"
           >
             {isLoading ? (
-              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : mode === 'login' ? (
               <>
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-5 h-5" />
                 <span>Đăng nhập ngay</span>
               </>
             ) : (
               <>
-                <UserPlus className="w-4 h-4" />
+                <UserPlus className="w-5 h-5" />
                 <span>Tạo tài khoản & Học ngay</span>
               </>
             )}
@@ -237,11 +247,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </form>
 
         {/* Nút Đăng nhập Demo 1-click */}
-        <div className="mt-5 pt-4 border-t border-kawaii-100 dark:border-dark-border text-center">
+        <div className="mt-4 pt-3 border-t border-kawaii-100 dark:border-dark-border text-center">
           <button
             type="button"
             onClick={handleQuickDemo}
-            className="w-full py-2.5 px-4 rounded-2xl bg-kawaii-50 dark:bg-dark-bg/80 hover:bg-kawaii-100 dark:hover:bg-dark-cardHover text-kawaii-700 dark:text-kawaii-300 font-semibold text-xs border border-kawaii-200 dark:border-dark-border transition-all flex items-center justify-center gap-1.5"
+            className="w-full py-3 px-4 rounded-2xl bg-kawaii-50 dark:bg-dark-bg/80 hover:bg-kawaii-100 dark:hover:bg-dark-cardHover text-kawaii-700 dark:text-kawaii-300 font-bold text-xs border border-kawaii-200 dark:border-dark-border transition-all flex items-center justify-center gap-1.5 min-h-[44px] active:scale-95"
           >
             <Sparkles className="w-4 h-4 text-kawaii-500" />
             <span>Thử nhanh tài khoản Demo (1-Click)</span>
