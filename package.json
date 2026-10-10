@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"magenta,cyan\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "build": "npm run build --prefix server && npm run build --prefix client",
+    "render:build": "npm install && npm run build && npm run db:push && npm run db:seed",
     "start": "node server/dist/server.js",
     "server": "npm run dev --prefix server",
     "client": "npm run dev --prefix client",

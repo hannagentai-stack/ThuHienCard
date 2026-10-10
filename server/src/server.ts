@@ -45,8 +45,14 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/sync', syncRoutes);
 
 // Phục vụ frontend tĩnh khi triển khai production
-const clientDistPath = path.resolve(__dirname, '../../client/dist');
-if (fs.existsSync(clientDistPath)) {
+const possiblePaths = [
+  path.resolve(__dirname, '../../client/dist'),
+  path.resolve(__dirname, '../client/dist'),
+  path.resolve(process.cwd(), 'client/dist'),
+];
+const clientDistPath = possiblePaths.find((p) => fs.existsSync(p));
+if (clientDistPath) {
+  console.log(`🌸 Đang phục vụ giao diện Web Frontend từ: ${clientDistPath}`);
   app.use(express.static(clientDistPath));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
