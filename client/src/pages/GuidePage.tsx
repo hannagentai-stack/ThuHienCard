@@ -50,7 +50,7 @@ export const GuidePage: React.FC<GuidePageProps> = ({ onOpenTour }) => {
               Hướng Dẫn Sử Dụng & FAQ 📖
             </h1>
             <p className="text-xs text-gray-500 dark:text-dark-textMuted">
-              Khám phá bí quyết học từ vựng hiệu quả cùng Sakura Flashcard
+              Khám phá bí quyết học từ vựng hiệu quả cùng Thu Hiền EDU
             </p>
           </div>
         </div>
@@ -82,7 +82,7 @@ export const GuidePage: React.FC<GuidePageProps> = ({ onOpenTour }) => {
               Theo nhà tâm lý học Hermann Ebbinghaus, não người quên tới 70% lượng kiến thức mới học chỉ sau 24 giờ nếu không được nhắc lại.
             </p>
             <p className="text-xs sm:text-sm text-gray-600 dark:text-dark-textMuted leading-relaxed">
-              Thay vì nhồi nhét hàng trăm từ trong 1 đêm rồi quên sạch, thuật toán FSRS của Sakura Flashcard sẽ chia nhỏ việc ôn tập: chỉ cần <strong>10–15 phút mỗi ngày</strong> đúng vào thời điểm vàng, bạn sẽ khắc sâu từ vựng vào trí nhớ dài hạn suốt đời!
+              Thay vì nhồi nhét hàng trăm từ trong 1 đêm rồi quên sạch, thuật toán FSRS của Thu Hiền EDU sẽ chia nhỏ việc ôn tập: chỉ cần <strong>10–15 phút mỗi ngày</strong> đúng vào thời điểm vàng, bạn sẽ khắc sâu từ vựng vào trí nhớ dài hạn suốt đời!
             </p>
           </div>
 

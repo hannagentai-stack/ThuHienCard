@@ -95,7 +95,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <Mascot id="bunny_pink" mood={mascotMood} size="sm" />
           </div>
           <h2 className="text-xl sm:text-2xl font-bold font-display text-gray-800 dark:text-dark-text">
-            {mode === 'login' ? 'Chào mừng bạn trở lại! 🌸' : 'Gia nhập Sakura Flashcard ✨'}
+            {mode === 'login' ? 'Chào mừng bạn trở lại! 🌸' : 'Gia nhập Thu Hiền EDU ✨'}
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-dark-textMuted mt-0.5">
             {mode === 'login'

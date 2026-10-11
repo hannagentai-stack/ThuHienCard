@@ -1,8 +1,8 @@
-# 🌸 Sakura Flashcard - Web Học Tiếng Trung & Tiếng Anh Bằng Flashcard Thông Minh
+# 🌸 Thu Hiền EDU - Web Học Tiếng Trung & Tiếng Anh Bằng Flashcard Thông Minh
 
 > **Ứng dụng học từ vựng ngoại ngữ hoàn chỉnh, hiện đại theo chuẩn FSRS v4, hỗ trợ tập viết chữ Hán, nhập/xuất Excel thông minh, hệ thống Gamification lôi cuốn và khả năng học Offline PWA.**
 
-![Sakura Flashcard](client/public/pwa-icon.svg)
+![Thu Hiền EDU](client/public/pwa-icon.svg)
 
 ---
 
@@ -223,4 +223,4 @@ docker-compose up -d --build
 
 ---
 
-## 🌸 Chúc bạn có những giờ phút học ngoại ngữ thật vui và hiệu quả cùng Sakura Flashcard!
+## 🌸 Chúc bạn có những giờ phút học ngoại ngữ thật vui và hiệu quả cùng Thu Hiền EDU!

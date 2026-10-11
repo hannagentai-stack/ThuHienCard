@@ -26,7 +26,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
 
   const steps: Step[] = [
     {
-      title: 'Chào mừng đến Sakura! 🌸',
+      title: 'Chào mừng đến Thu Hiền EDU! 🌸',
       subtitle: 'Học tiếng Trung & Tiếng Anh siêu tốc',
       description:
         'Hệ thống flashcard thông minh được thiết kế đặc biệt cho người Việt. Tự động phiên âm Pinyin, phiên âm quốc tế IPA, ví dụ ngữ cảnh và phát âm chuẩn bản xứ.',

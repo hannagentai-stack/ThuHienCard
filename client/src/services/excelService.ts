@@ -164,7 +164,7 @@ export const downloadTemplate = async (language: 'zh' | 'en') => {
         'Thẻ (Tags)': 'Hàng ngày',
       },
     ];
-    filename = 'Mau_Nhap_The_Tieng_Trung_HSK_Sakura.xlsx';
+    filename = 'Mau_Nhap_The_Tieng_Trung_HSK_ThuHienEDU.xlsx';
   } else {
     headers = [
       'Mặt trước (Từ vựng)',
@@ -201,7 +201,7 @@ export const downloadTemplate = async (language: 'zh' | 'en') => {
         'Thẻ (Tags)': 'Tính cách',
       },
     ];
-    filename = 'Mau_Nhap_The_Tieng_Anh_Oxford_Sakura.xlsx';
+    filename = 'Mau_Nhap_The_Tieng_Anh_Oxford_ThuHienEDU.xlsx';
   }
 
   const worksheet = XLSX.utils.json_to_sheet(sampleData, { header: headers });

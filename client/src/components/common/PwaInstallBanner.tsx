@@ -85,7 +85,7 @@ export const PwaInstallBanner: React.FC = () => {
           </div>
           <div className="min-w-0">
             <span className="block truncate font-extrabold text-white">
-              Cài Sakura Flashcard 🌸
+              Cài Thu Hiền EDU 🌸
             </span>
             <span className="block truncate text-[11px] text-pink-100 font-normal">
               Mở nhanh như app, học offline không cần mạng

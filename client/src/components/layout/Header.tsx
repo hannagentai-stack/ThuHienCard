@@ -79,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="flex items-center">
             <span className="font-display font-extrabold text-lg sm:text-2xl tracking-tight bg-gradient-to-r from-kawaii-500 to-kawaii-600 dark:from-kawaii-400 dark:to-pink-300 bg-clip-text text-transparent">
-              Sakura<span className="hidden sm:inline"> Flashcard</span>
+              Thu Hiền<span className="hidden sm:inline"> EDU</span>
             </span>
             <span className="hidden md:inline-block ml-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-kawaii-100 dark:bg-dark-card text-kawaii-600 dark:text-kawaii-400 border border-kawaii-200 dark:border-dark-border">
               SRS 🌸
@@ -142,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
           {installPrompt && (
             <button
               onClick={handleInstallClick}
-              title="Cài đặt Sakura Flashcard lên thiết bị"
+              title="Cài đặt Thu Hiền EDU lên thiết bị"
               className="hidden md:flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] rounded-2xl bg-gradient-to-r from-pink-500 to-kawaii-500 text-white font-bold text-xs shadow-kawaii btn-bounce"
             >
               <Download className="w-3.5 h-3.5" />

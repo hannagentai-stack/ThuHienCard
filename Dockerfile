@@ -1,5 +1,5 @@
 # ==========================================
-# Multi-stage Dockerfile cho Sakura Flashcard
+# Multi-stage Dockerfile cho Thu Hiền EDU
 # ==========================================
 
 # Bước 1: Build Frontend & Backend

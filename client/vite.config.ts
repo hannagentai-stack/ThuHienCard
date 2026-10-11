@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'pwa-icon.svg'],
       manifest: {
-        name: 'Sakura Flashcard - Học Tiếng Trung & Tiếng Anh',
-        short_name: 'SakuraSRS',
+        name: 'Thu Hiền EDU - Học Tiếng Trung & Tiếng Anh',
+        short_name: 'ThuHienEDU',
         description: 'Web học từ vựng tiếng Trung và tiếng Anh bằng flashcard FSRS v4, Hanzi Writer và gamification Kawaii',
         theme_color: '#FF5C9E',
         background_color: '#FFF5F8',
