@@ -3,6 +3,7 @@ import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { BottomTabBar } from './components/layout/BottomTabBar';
 import { LandingPage } from './pages/LandingPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { GuidePage } from './pages/GuidePage';
 import { DecksPage } from './pages/DecksPage';
@@ -13,6 +14,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { ShortcutsModal } from './components/common/ShortcutsModal';
 import { OnboardingTour } from './components/common/OnboardingTour';
 import { useAuthStore } from './stores/authStore';
+import { useDeckStore } from './stores/deckStore';
 import { useThemeStore } from './stores/themeStore';
 import { HelpCircle } from 'lucide-react';
 
@@ -24,7 +26,8 @@ export function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
 
-  const { checkAuth } = useAuthStore();
+  const { checkAuth, isAuthenticated } = useAuthStore();
+  const { decks } = useDeckStore();
   const { initTheme } = useThemeStore();
 
   useEffect(() => {
@@ -118,11 +121,22 @@ export function App() {
             : 'px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 lg:pb-12'
         }`}>
           {activeTab === 'home' && (
-            <LandingPage
-              onOpenAuth={handleOpenAuth}
-              onGoToDecks={() => setActiveTab('decks')}
-              onGoToGuide={() => setActiveTab('guide')}
-            />
+            isAuthenticated || decks.length > 0 ? (
+              <DashboardPage
+                onStartStudy={(deckId) => handleStartStudy(deckId)}
+                onGoToDecks={() => setActiveTab('decks')}
+                onGoToPractice={() => setActiveTab('practice')}
+                onGoToStats={() => setActiveTab('stats')}
+                onOpenCreateDeck={() => setActiveTab('decks')}
+                onOpenTour={handleOpenTour}
+              />
+            ) : (
+              <LandingPage
+                onOpenAuth={handleOpenAuth}
+                onGoToDecks={() => setActiveTab('decks')}
+                onGoToGuide={() => setActiveTab('guide')}
+              />
+            )
           )}
 
           {activeTab === 'profile' && <ProfilePage />}
