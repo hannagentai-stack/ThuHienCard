@@ -45,12 +45,27 @@ export const StudyPage: React.FC<StudyPageProps> = ({ deckId, onExit }) => {
   const { decks, updateCard } = useDeckStore();
 
   // Cài đặt cá nhân hóa cho phiên học mobile
-  const [autoSpeech, setAutoSpeech] = useState(true);
-  const [swipeEnabled, setSwipeEnabled] = useState(true);
+  const [autoSpeech, setAutoSpeech] = useState(
+    localStorage.getItem('study_auto_speech') !== 'false'
+  );
+  const [swipeEnabled, setSwipeEnabled] = useState(
+    localStorage.getItem('study_swipe') !== 'false'
+  );
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [isEditingCurrentCard, setIsEditingCurrentCard] = useState(false);
   const [startTime, setStartTime] = useState<number>(Date.now());
+
+  // Haptic feedback helper
+  const triggerHaptic = (duration = 10) => {
+    if (
+      localStorage.getItem('mobile_haptics') !== 'false' &&
+      typeof navigator !== 'undefined' &&
+      navigator.vibrate
+    ) {
+      navigator.vibrate([duration]);
+    }
+  };
 
   // Toast hoàn tác nổi trong 4 giây sau mỗi lần chấm điểm
   const [undoToast, setUndoToast] = useState<{ visible: boolean; label: string; timer?: any }>({
@@ -128,6 +143,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({ deckId, onExit }) => {
   // Xử lý chấm điểm
   const handleRate = useCallback(
     (rating: 1 | 2 | 3 | 4) => {
+      triggerHaptic(12);
       const reviewTime = Date.now() - startTime;
       const ratingLabels = { 1: 'Lại', 2: 'Khó', 3: 'Tốt', 4: 'Dễ' };
       reviewCard(rating, reviewTime);
@@ -227,6 +243,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({ deckId, onExit }) => {
   const handleCardClick = () => {
     // Chỉ lật nếu người dùng không kéo vuốt thẻ
     if (Math.abs(dragX) < 10) {
+      triggerHaptic(8);
       flipCard();
     }
   };

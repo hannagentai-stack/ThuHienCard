@@ -167,3 +167,13 @@
 .dark ::-webkit-scrollbar-thumb:hover {
   background: #FF70A6;
 }
+
+/* Tiết kiệm pin và tối ưu trải nghiệm khi thiết bị bật chế độ giảm chuyển động */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -13,6 +13,8 @@ import { StatsPage } from './pages/StatsPage';
 import { AuthModal } from './components/auth/AuthModal';
 import { ShortcutsModal } from './components/common/ShortcutsModal';
 import { OnboardingTour } from './components/common/OnboardingTour';
+import { ServerWakeupBanner } from './components/common/ServerWakeupBanner';
+import { PwaInstallBanner } from './components/common/PwaInstallBanner';
 import { useAuthStore } from './stores/authStore';
 import { useDeckStore } from './stores/deckStore';
 import { useThemeStore } from './stores/themeStore';
@@ -98,6 +100,11 @@ export function App() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-candy-cream dark:bg-dark-bg transition-colors duration-300">
+      {/* Thông báo đánh thức máy chủ Render & Ngoại tuyến */}
+      <ServerWakeupBanner />
+
+      {/* Banner cài đặt ứng dụng PWA trên điện thoại */}
+      <PwaInstallBanner />
       
       {/* 1. Header trên cùng (Tự động ẩn trong Study Mode) */}
       <Header

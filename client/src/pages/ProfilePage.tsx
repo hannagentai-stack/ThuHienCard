@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User as UserIcon,
   Shield,
@@ -9,9 +9,15 @@ import {
   AlertTriangle,
   Volume2,
   Sparkles,
+  Smartphone,
+  SunMedium,
+  HandMetal,
+  Type,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { Mascot, type MascotId } from '../components/common/Mascot';
+import { promptPwaInstall } from '../components/common/PwaInstallBanner';
 
 export const ProfilePage: React.FC = () => {
   const { user, token, updateProfile, logout } = useAuthStore();
@@ -23,6 +29,21 @@ export const ProfilePage: React.FC = () => {
   const [dailyGoal, setDailyGoal] = useState<number>(user?.dailyGoal || 20);
   const [defaultVoice, setDefaultVoice] = useState<'zh-CN' | 'zh-TW' | 'en-US' | 'en-GB'>('zh-CN');
 
+  // Cài đặt trải nghiệm di động (Mobile Settings)
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
+  const [autoSpeech, setAutoSpeech] = useState(true);
+  const [wakeLockEnabled, setWakeLockEnabled] = useState(true);
+  const [swipeEnabled, setSwipeEnabled] = useState(true);
+  const [fontScale, setFontScale] = useState<'normal' | 'large' | 'huge'>('normal');
+
+  useEffect(() => {
+    setHapticsEnabled(localStorage.getItem('mobile_haptics') !== 'false');
+    setAutoSpeech(localStorage.getItem('study_auto_speech') !== 'false');
+    setWakeLockEnabled(localStorage.getItem('study_wake_lock') !== 'false');
+    setSwipeEnabled(localStorage.getItem('study_swipe') !== 'false');
+    setFontScale((localStorage.getItem('mobile_font_scale') as any) || 'normal');
+  }, []);
+
   // Đổi mật khẩu
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -32,9 +53,10 @@ export const ProfilePage: React.FC = () => {
     message: '',
   });
 
-  // Trạng thái lưu
+  // Trạng thái lưu & modal
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isClearingCache, setIsClearingCache] = useState(false);
 
   if (!user) {
     return (
@@ -54,9 +76,21 @@ export const ProfilePage: React.FC = () => {
     { id: 'boba_mint', name: 'Trà Sữa Boba' },
   ];
 
-  // Lưu thông tin hồ sơ
+  // Lưu thông tin hồ sơ & cài đặt di động
   const handleSaveProfile = async () => {
     setSaveStatus('saving');
+
+    // Lưu mobile settings vào localStorage
+    localStorage.setItem('mobile_haptics', String(hapticsEnabled));
+    localStorage.setItem('study_auto_speech', String(autoSpeech));
+    localStorage.setItem('study_wake_lock', String(wakeLockEnabled));
+    localStorage.setItem('study_swipe', String(swipeEnabled));
+    localStorage.setItem('mobile_font_scale', fontScale);
+
+    if (hapticsEnabled && typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([15]);
+    }
+
     const success = await updateProfile({
       displayName,
       avatar: selectedAvatar,
@@ -133,6 +167,25 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  // Dọn dẹp cache offline an toàn
+  const handleClearCache = async () => {
+    if (!confirm('Dọn dẹp bộ nhớ đệm offline (Workbox/PWA)? Dữ liệu thẻ trên máy chủ sẽ không bị ảnh hưởng.')) {
+      return;
+    }
+    setIsClearingCache(true);
+    try {
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      }
+      alert('Đã xóa sạch bộ nhớ đệm offline thành công! ✨');
+    } catch {
+      alert('Không thể xóa bộ nhớ đệm.');
+    } finally {
+      setIsClearingCache(false);
+    }
+  };
+
   // Xóa tài khoản
   const handleDeleteAccount = async () => {
     try {
@@ -149,7 +202,7 @@ export const ProfilePage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-16">
+    <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 pb-16">
       
       {/* Tiêu đề */}
       <div className="flex items-center gap-3">
@@ -161,14 +214,14 @@ export const ProfilePage: React.FC = () => {
             Hồ Sơ & Cài Đặt Cá Nhân 🌸
           </h1>
           <p className="text-xs text-gray-500 dark:text-dark-textMuted">
-            Tùy biến linh vật đại diện, mục tiêu ôn tập và bảo mật tài khoản
+            Tùy biến linh vật đại diện, trải nghiệm di động và bảo mật tài khoản
           </p>
         </div>
       </div>
 
       {/* 1. THÔNG TIN HỒ SƠ & LINH VẬT */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-100 dark:border-dark-border shadow-sm space-y-6">
-        <h2 className="text-lg font-bold font-display text-gray-800 dark:text-white flex items-center gap-2">
+      <div className="p-5 sm:p-8 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-100 dark:border-dark-border shadow-sm space-y-6">
+        <h2 className="text-base sm:text-lg font-bold font-display text-gray-800 dark:text-white flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-kawaii-500" />
           <span>Linh Vật & Tên Hiển Thị</span>
         </h2>
@@ -178,7 +231,7 @@ export const ProfilePage: React.FC = () => {
           <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-3">
             Chọn linh vật đại diện của bạn:
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {avatars.map((ava) => {
               const isSelected = selectedAvatar === ava.id;
               return (
@@ -186,7 +239,7 @@ export const ProfilePage: React.FC = () => {
                   key={ava.id}
                   type="button"
                   onClick={() => setSelectedAvatar(ava.id)}
-                  className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all btn-bounce ${
+                  className={`p-3.5 sm:p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all btn-bounce ${
                     isSelected
                       ? 'border-kawaii-500 bg-kawaii-50 dark:bg-dark-bg shadow-kawaii-sm'
                       : 'border-kawaii-100 dark:border-dark-border bg-white dark:bg-dark-card hover:bg-gray-50'
@@ -212,7 +265,7 @@ export const ProfilePage: React.FC = () => {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-sm outline-none focus:border-kawaii-500 dark:text-white"
+              className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-base sm:text-sm outline-none focus:border-kawaii-500 dark:text-white"
             />
           </div>
 
@@ -224,12 +277,12 @@ export const ProfilePage: React.FC = () => {
               type="text"
               disabled
               value={`@${user.username}`}
-              className="w-full px-4 py-2.5 rounded-2xl bg-gray-100 dark:bg-dark-bg/60 border border-gray-200 dark:border-dark-border text-sm text-gray-500 cursor-not-allowed"
+              className="w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-dark-bg/60 border border-gray-200 dark:border-dark-border text-base sm:text-sm text-gray-500 cursor-not-allowed"
             />
           </div>
         </div>
 
-        {/* 2. CÀI ĐẶT MỤC TIÊU HỌC & GIỌNG ĐỌC */}
+        {/* Mục tiêu học & Giọng đọc */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-kawaii-100 dark:border-dark-border">
           {/* Mục tiêu học hàng ngày */}
           <div>
@@ -265,7 +318,7 @@ export const ProfilePage: React.FC = () => {
             <select
               value={defaultVoice}
               onChange={(e) => setDefaultVoice(e.target.value as any)}
-              className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-sm outline-none focus:border-kawaii-500 dark:text-white"
+              className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-base sm:text-sm outline-none focus:border-kawaii-500 dark:text-white"
             >
               <option value="zh-CN">🇨🇳 Tiếng Trung phổ thông (zh-CN)</option>
               <option value="zh-TW">🇹🇼 Tiếng Trung Đài Loan (zh-TW)</option>
@@ -281,7 +334,7 @@ export const ProfilePage: React.FC = () => {
             type="button"
             onClick={handleSaveProfile}
             disabled={saveStatus === 'saving'}
-            className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-kawaii-400 to-kawaii-500 text-white font-bold text-sm shadow-kawaii btn-bounce flex items-center gap-2"
+            className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-kawaii-400 to-kawaii-500 text-white font-bold text-xs shadow-kawaii btn-bounce flex items-center justify-center gap-2 active:scale-95"
           >
             {saveStatus === 'saved' ? (
               <>
@@ -295,16 +348,175 @@ export const ProfilePage: React.FC = () => {
         </div>
       </div>
 
+      {/* 2. CÀI ĐẶT TRẢI NGHIỆM DI ĐỘNG & PWA (MOBILE EXPERIENCE) */}
+      <div className="p-5 sm:p-8 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-100 dark:border-dark-border shadow-sm space-y-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base sm:text-lg font-bold font-display text-gray-800 dark:text-white flex items-center gap-2">
+            <Smartphone className="w-4 h-4 text-kawaii-500" />
+            <span>Cài Đặt Trải Nghiệm Di Động & PWA 📱</span>
+          </h2>
+          <span className="text-[11px] font-bold text-kawaii-600 bg-kawaii-50 dark:bg-dark-bg px-2.5 py-1 rounded-full">
+            Mobile-First
+          </span>
+        </div>
+
+        <div className="space-y-4 divide-y divide-gray-100 dark:divide-dark-border">
+          
+          {/* Rung phản hồi cảm ứng */}
+          <div className="flex items-center justify-between pt-2">
+            <div className="space-y-0.5 pr-2">
+              <span className="text-xs font-bold text-gray-800 dark:text-white block">
+                Rung phản hồi khi bấm nút (Haptic Feedback)
+              </span>
+              <span className="text-[11px] text-gray-400 block">
+                Rung nhẹ 10ms khi lật thẻ, chọn đáp án hoặc vuốt cử chỉ
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={hapticsEnabled}
+              onChange={(e) => {
+                setHapticsEnabled(e.target.checked);
+                if (e.target.checked && navigator.vibrate) navigator.vibrate(15);
+              }}
+              className="w-5 h-5 accent-kawaii-500 rounded cursor-pointer shrink-0"
+            />
+          </div>
+
+          {/* Tự động phát âm */}
+          <div className="flex items-center justify-between pt-3">
+            <div className="space-y-0.5 pr-2">
+              <span className="text-xs font-bold text-gray-800 dark:text-white block">
+                Tự động phát âm khi lật thẻ
+              </span>
+              <span className="text-[11px] text-gray-400 block">
+                Tự đọc giọng bản xứ từ vựng ngay khi xem mặt sau
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={autoSpeech}
+              onChange={(e) => setAutoSpeech(e.target.checked)}
+              className="w-5 h-5 accent-kawaii-500 rounded cursor-pointer shrink-0"
+            />
+          </div>
+
+          {/* Giữ màn hình sáng (Wake Lock) */}
+          <div className="flex items-center justify-between pt-3">
+            <div className="space-y-0.5 pr-2">
+              <span className="text-xs font-bold text-gray-800 dark:text-white flex items-center gap-1.5">
+                <SunMedium className="w-3.5 h-3.5 text-amber-500" />
+                <span>Giữ màn hình luôn sáng khi học</span>
+              </span>
+              <span className="text-[11px] text-gray-400 block">
+                Ngăn màn hình điện thoại tự tắt khóa khi đang suy nghĩ thẻ
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={wakeLockEnabled}
+              onChange={(e) => setWakeLockEnabled(e.target.checked)}
+              className="w-5 h-5 accent-kawaii-500 rounded cursor-pointer shrink-0"
+            />
+          </div>
+
+          {/* Cử chỉ vuốt đổi thẻ */}
+          <div className="flex items-center justify-between pt-3">
+            <div className="space-y-0.5 pr-2">
+              <span className="text-xs font-bold text-gray-800 dark:text-white flex items-center gap-1.5">
+                <HandMetal className="w-3.5 h-3.5 text-purple-500" />
+                <span>Cử chỉ vuốt đổi thẻ (Swipe Gesture)</span>
+              </span>
+              <span className="text-[11px] text-gray-400 block">
+                Vuốt sang phải = Tốt, vuốt sang trái = Lại
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={swipeEnabled}
+              onChange={(e) => setSwipeEnabled(e.target.checked)}
+              className="w-5 h-5 accent-kawaii-500 rounded cursor-pointer shrink-0"
+            />
+          </div>
+
+          {/* Cỡ chữ thẻ trên di động */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3">
+            <div className="space-y-0.5">
+              <span className="text-xs font-bold text-gray-800 dark:text-white flex items-center gap-1.5">
+                <Type className="w-3.5 h-3.5 text-blue-500" />
+                <span>Cỡ chữ hiển thị từ vựng & Hán tự:</span>
+              </span>
+              <span className="text-[11px] text-gray-400 block">
+                Tăng kích thước chữ nếu bạn muốn đọc rõ hơn trên màn hình nhỏ
+              </span>
+            </div>
+
+            <div className="flex bg-gray-100 dark:bg-dark-bg p-1 rounded-xl text-xs font-bold w-fit">
+              <button
+                type="button"
+                onClick={() => setFontScale('normal')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  fontScale === 'normal' ? 'bg-kawaii-500 text-white shadow-sm' : 'text-gray-500'
+                }`}
+              >
+                Vừa (100%)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontScale('large')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  fontScale === 'large' ? 'bg-kawaii-500 text-white shadow-sm' : 'text-gray-500'
+                }`}
+              >
+                Lớn (115%)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontScale('huge')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  fontScale === 'huge' ? 'bg-kawaii-500 text-white shadow-sm' : 'text-gray-500'
+                }`}
+              >
+                Rất lớn (130%)
+              </button>
+            </div>
+          </div>
+
+          {/* Cài đặt PWA & Xóa bộ nhớ đệm Offline */}
+          <div className="pt-4 flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => promptPwaInstall()}
+              className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 active:scale-95"
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Cài đặt ứng dụng vào màn hình chính (PWA)</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isClearingCache}
+              onClick={handleClearCache}
+              className="py-3 px-4 rounded-2xl bg-gray-100 dark:bg-dark-bg hover:bg-gray-200 text-gray-700 dark:text-gray-300 font-bold text-xs border border-gray-200 dark:border-dark-border flex items-center justify-center gap-2 active:scale-95"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isClearingCache ? 'animate-spin' : ''}`} />
+              <span>Dọn dẹp bộ nhớ đệm Offline</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
       {/* 3. ĐỔI MẬT KHẨU */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-100 dark:border-dark-border shadow-sm space-y-4">
-        <h2 className="text-lg font-bold font-display text-gray-800 dark:text-white flex items-center gap-2">
+      <div className="p-5 sm:p-8 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-100 dark:border-dark-border shadow-sm space-y-4">
+        <h2 className="text-base sm:text-lg font-bold font-display text-gray-800 dark:text-white flex items-center gap-2">
           <Shield className="w-4 h-4 text-purple-500" />
           <span>Bảo Mật & Mật Khẩu</span>
         </h2>
 
         {pwStatus.message && (
           <div
-            className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+            className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${
               pwStatus.type === 'success'
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : 'bg-red-50 text-red-700 border border-red-200'
@@ -321,26 +533,26 @@ export const ProfilePage: React.FC = () => {
             placeholder="Mật khẩu hiện tại"
             value={oldPassword}
             onChange={(e) => setOldPassword(e.target.value)}
-            className="px-4 py-2.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-sm outline-none focus:border-kawaii-500 dark:text-white"
+            className="px-4 py-3 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-base sm:text-sm outline-none focus:border-kawaii-500 dark:text-white"
           />
           <input
             type="password"
             placeholder="Mật khẩu mới (tối thiểu 6 ký tự)"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="px-4 py-2.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-sm outline-none focus:border-kawaii-500 dark:text-white"
+            className="px-4 py-3 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-base sm:text-sm outline-none focus:border-kawaii-500 dark:text-white"
           />
           <input
             type="password"
             placeholder="Xác nhận mật khẩu mới"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="px-4 py-2.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-sm outline-none focus:border-kawaii-500 dark:text-white"
+            className="px-4 py-3 rounded-2xl bg-gray-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-base sm:text-sm outline-none focus:border-kawaii-500 dark:text-white"
           />
           <div className="sm:col-span-3 flex justify-end">
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs shadow-sm transition-all"
+              className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs shadow-sm transition-all active:scale-95"
             >
               Cập nhật mật khẩu
             </button>
@@ -349,9 +561,9 @@ export const ProfilePage: React.FC = () => {
       </div>
 
       {/* 4. SAO LƯU DỮ LIỆU & VÙNG NGUY HIỂM */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-100 dark:border-dark-border shadow-sm space-y-6">
+      <div className="p-5 sm:p-8 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-100 dark:border-dark-border shadow-sm space-y-6">
         <div>
-          <h2 className="text-lg font-bold font-display text-gray-800 dark:text-white flex items-center gap-2 mb-1">
+          <h2 className="text-base sm:text-lg font-bold font-display text-gray-800 dark:text-white flex items-center gap-2 mb-1">
             <Download className="w-4 h-4 text-blue-500" />
             <span>Sao Lưu Toàn Bộ Dữ Liệu</span>
           </h2>
@@ -361,7 +573,7 @@ export const ProfilePage: React.FC = () => {
           <button
             type="button"
             onClick={handleExportBackup}
-            className="px-4 py-2 rounded-2xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-300 font-bold text-xs border border-blue-200 dark:border-blue-800 transition-colors flex items-center gap-1.5"
+            className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-300 font-bold text-xs border border-blue-200 dark:border-blue-800 transition-colors flex items-center justify-center gap-1.5 active:scale-95"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Tải tệp sao lưu (.json)</span>
@@ -378,7 +590,7 @@ export const ProfilePage: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowDeleteModal(true)}
-            className="px-4 py-2 rounded-2xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-bold text-xs border border-red-200 dark:border-red-900/60 transition-colors"
+            className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-bold text-xs border border-red-200 dark:border-red-900/60 transition-colors active:scale-95"
           >
             Xóa tài khoản vĩnh viễn
           </button>
@@ -402,14 +614,14 @@ export const ProfilePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-dark-bg text-gray-700 dark:text-gray-300 text-xs font-bold"
+                className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-dark-bg text-gray-700 dark:text-gray-300 text-xs font-bold"
               >
                 Hủy bỏ
               </button>
               <button
                 type="button"
                 onClick={handleDeleteAccount}
-                className="px-4 py-2 rounded-xl bg-red-500 text-white text-xs font-bold hover:bg-red-600"
+                className="px-4 py-2.5 rounded-xl bg-red-500 text-white text-xs font-bold hover:bg-red-600"
               >
                 Xác nhận xóa vĩnh viễn
               </button>
