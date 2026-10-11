@@ -353,3 +353,99 @@ export const toggleSuspend = async (req: AuthRequest, res: Response): Promise<vo
     res.status(500).json({ success: false, message: 'Lỗi cập nhật trạng thái tạm hoãn.' });
   }
 };
+
+// 5. Thưởng XP & Cập nhật chuỗi học từ chế độ Luyện tập / Trò chơi
+export const recordPracticeReward = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Chưa xác thực.' });
+      return;
+    }
+
+    const { xp = 15, mode = 'matching', mistakeCardIds = [] } = req.body;
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Người dùng không tồn tại.' });
+      return;
+    }
+
+    let streakCount = user.streakCount;
+    let lastStudyDate = user.lastStudyDate;
+
+    if (lastStudyDate !== todayStr) {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+      if (lastStudyDate === yesterdayStr) {
+        streakCount += 1;
+      } else if (!lastStudyDate) {
+        streakCount = 1;
+      } else {
+        if (user.streakFreezes > 0) {
+          streakCount += 1;
+          await prisma.user.update({
+            where: { id: userId },
+            data: { streakFreezes: { decrement: 1 } },
+          });
+        } else {
+          streakCount = 1;
+        }
+      }
+      lastStudyDate = todayStr;
+    }
+
+    const xpGained = Math.max(5, Math.min(50, Number(xp)));
+    const newXp = user.xp + xpGained;
+    const newLevel = Math.floor(newXp / 300) + 1;
+    const longestStreak = Math.max(user.longestStreak, streakCount);
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        xp: newXp,
+        level: newLevel,
+        streakCount,
+        longestStreak,
+        lastStudyDate,
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatar: true,
+        dailyGoal: true,
+        streakCount: true,
+        longestStreak: true,
+        streakFreezes: true,
+        lastStudyDate: true,
+        xp: true,
+        level: true,
+        settingsJson: true,
+      },
+    });
+
+    // Nếu có các thẻ bị sai trong lúc chơi: Tăng lapses nhẹ để phục vụ chế độ "Thẻ khó"
+    // KHÔNG đụng chạm hay làm thay đổi lịch hẹn SRS (due, stability, difficulty)
+    if (Array.isArray(mistakeCardIds) && mistakeCardIds.length > 0) {
+      await prisma.cardSchedule.updateMany({
+        where: { cardId: { in: mistakeCardIds } },
+        data: { lapses: { increment: 1 } },
+      });
+    }
+
+    res.json({
+      success: true,
+      xpGained,
+      user: updatedUser,
+      message: 'Đã lưu kết quả luyện tập thành công! ⭐',
+    });
+  } catch (error) {
+    console.error('Lỗi lưu kết quả luyện tập:', error);
+    res.status(500).json({ success: false, message: 'Lỗi lưu kết quả luyện tập.' });
+  }
+};

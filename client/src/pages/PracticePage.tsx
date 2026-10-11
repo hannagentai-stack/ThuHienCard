@@ -19,6 +19,7 @@ import {
   type EligibilityResult,
 } from '../hooks/usePracticeCards';
 import { PracticeIneligibleModal } from '../components/practice/PracticeIneligibleModal';
+import { MatchingGameView } from '../components/practice/MatchingGameView';
 
 type PracticeMode =
   | 'menu'
@@ -88,16 +89,6 @@ export const PracticePage: React.FC<PracticePageProps> = ({
   const [typingResult, setTypingResult] = useState<'correct' | 'wrong' | null>(null);
   const typingInputRef = useRef<HTMLInputElement>(null);
 
-  // Matching game state
-  const [matchingCards, setMatchingCards] = useState<{
-    id: string;
-    text: string;
-    cardId: string;
-    type: 'front' | 'back';
-    isMatched: boolean;
-  }[]>([]);
-  const [selectedMatch, setSelectedMatch] = useState<number | null>(null);
-
   // Speed review state (60s timer)
   const [timeLeft, setTimeLeft] = useState(60);
   const [isSpeedRunning, setIsSpeedRunning] = useState(false);
@@ -166,8 +157,6 @@ export const PracticePage: React.FC<PracticePageProps> = ({
 
     if (chosenMode === 'quiz' || chosenMode === 'listening') {
       setupQuizQuestion(shuffled[0], shuffled);
-    } else if (chosenMode === 'matching') {
-      setupMatchingGame(shuffled);
     } else if (chosenMode === 'speed') {
       setTimeLeft(60);
       setIsSpeedRunning(true);
@@ -249,49 +238,6 @@ export const PracticePage: React.FC<PracticePageProps> = ({
         finishGame();
       }
     }, 1400);
-  };
-
-  // Thiết lập Matching Game (Ghép cặp 4-6 từ)
-  const setupMatchingGame = (pool: Card[]) => {
-    const pairCount = Math.min(pool.length, 6);
-    const selected = pool.slice(0, pairCount);
-    const items: any[] = [];
-
-    selected.forEach((c) => {
-      items.push({ id: `front-${c.id}`, text: c.front, cardId: c.id, type: 'front', isMatched: false });
-      items.push({ id: `back-${c.id}`, text: c.back, cardId: c.id, type: 'back', isMatched: false });
-    });
-
-    setMatchingCards(items.sort(() => Math.random() - 0.5));
-    setSelectedMatch(null);
-  };
-
-  // Xử lý chọn ô Matching
-  const handleMatchCardClick = (idx: number) => {
-    const card = matchingCards[idx];
-    if (card.isMatched || selectedMatch === idx) return;
-
-    if (selectedMatch === null) {
-      setSelectedMatch(idx);
-    } else {
-      const first = matchingCards[selectedMatch];
-      if (first.cardId === card.cardId && first.type !== card.type) {
-        // Khớp nhau!
-        const updated = [...matchingCards];
-        updated[selectedMatch].isMatched = true;
-        updated[idx].isMatched = true;
-        setMatchingCards(updated);
-        setSelectedMatch(null);
-        setScore((s) => s + 1);
-
-        if (updated.every((c) => c.isMatched)) {
-          finishGame();
-        }
-      } else {
-        // Sai -> Tự bỏ chọn sau 450ms
-        setTimeout(() => setSelectedMatch(null), 450);
-      }
-    }
   };
 
   // Đếm ngược Speed Review (60s)
@@ -826,60 +772,18 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     );
   }
 
-  // 4. MÀN HÌNH CHƠI: GHÉP CẶP (MATCHING GAME - LƯỚI 2 CỘT CHỐNG TRÀN)
+  // 4. MÀN HÌNH CHƠI: GHÉP CẶP (MATCHING GAME - 2 CỘT TÁCH BẠCH CHUYÊN NGHIỆP)
   if (mode === 'matching') {
     return (
-      <div className="max-w-md mx-auto space-y-4 pb-20 select-none">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setMode('menu')}
-            className="min-h-[44px] px-3 py-1.5 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1 active:scale-95 shadow-xs"
-          >
-            <ArrowLeft className="w-4 h-4" /> Quay lại
-          </button>
-          <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-            Khớp được: {score} cặp
-          </span>
-        </div>
-
-        <div className="text-center space-y-0.5">
-          <h2 className="text-lg sm:text-xl font-bold font-display text-gray-900 dark:text-white">
-            Ghép Ô Từ Vựng Với Nghĩa 🧩
-          </h2>
-          <p className="text-xs text-gray-500">Chạm 1 ô từ rồi chạm ô nghĩa tương ứng</p>
-        </div>
-
-        {/* Lưới 2 Cột trên Mobile chống tràn ngang */}
-        <div className="grid grid-cols-2 gap-2.5 pt-1">
-          {matchingCards.map((item, idx) => {
-            const isSelected = selectedMatch === idx;
-            if (item.isMatched) {
-              return (
-                <div
-                  key={item.id}
-                  className="p-3.5 min-h-[58px] rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 text-emerald-600 text-xs font-bold text-center opacity-30 select-none flex items-center justify-center break-words"
-                >
-                  ✓ {item.text}
-                </div>
-              );
-            }
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleMatchCardClick(idx)}
-                className={`p-3.5 min-h-[58px] rounded-2xl border-2 text-xs font-bold text-center transition-all active:scale-95 shadow-xs flex items-center justify-center break-words ${
-                  isSelected
-                    ? 'border-kawaii-500 bg-kawaii-50 dark:bg-dark-bg text-kawaii-600 scale-102 shadow-kawaii'
-                    : 'border-kawaii-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-gray-200'
-                }`}
-              >
-                {item.text}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <MatchingGameView
+        cardsPool={pools.matchingCards}
+        onExit={() => setMode('menu')}
+        onNextRound={() => {
+          // Xáo trộn và đổi bộ nếu muốn
+          const reshuffled = [...pools.matchingCards].sort(() => Math.random() - 0.5);
+          setPracticeCards(reshuffled);
+        }}
+      />
     );
   }
 

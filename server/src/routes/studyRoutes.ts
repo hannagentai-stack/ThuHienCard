@@ -4,6 +4,7 @@ import {
   reviewCard,
   undoReview,
   toggleSuspend,
+  recordPracticeReward,
 } from '../controllers/studyController';
 import { authenticateJWT } from '../middlewares/authMiddleware';
 
@@ -15,5 +16,6 @@ router.get('/cards', getStudyCards);
 router.post('/cards/:id/review', reviewCard);
 router.post('/cards/:id/undo', undoReview);
 router.put('/cards/:id/suspend', toggleSuspend);
+router.post('/practice-reward', recordPracticeReward);
 
 export default router;
