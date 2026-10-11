@@ -44,9 +44,8 @@ export const getDecks = async (req: AuthRequest, res: Response): Promise<void> =
         }
       }
 
-      const { cards, ...deckInfo } = deck;
       return {
-        ...deckInfo,
+        ...deck,
         stats: {
           totalCards,
           newCards,

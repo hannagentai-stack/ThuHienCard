@@ -13,6 +13,12 @@ import { useDeckStore } from '../stores/deckStore';
 import { type Card } from '../types';
 import { ttsService } from '../services/ttsService';
 import { HanziWriterCanvas } from '../components/cards/HanziWriterCanvas';
+import {
+  usePracticeCards,
+  type PracticeModeType,
+  type EligibilityResult,
+} from '../hooks/usePracticeCards';
+import { PracticeIneligibleModal } from '../components/practice/PracticeIneligibleModal';
 
 type PracticeMode =
   | 'menu'
@@ -26,6 +32,7 @@ type PracticeMode =
 
 interface PracticePageProps {
   onStartSRS: () => void;
+  onNavigateToDecks?: () => void;
 }
 
 const PINYIN_TONES = [
@@ -37,11 +44,34 @@ const PINYIN_TONES = [
   'ǖ', 'ǘ', 'ǚ', 'ǜ',
 ];
 
-export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
-  const { decks, fetchDecks } = useDeckStore();
-
+export const PracticePage: React.FC<PracticePageProps> = ({
+  onStartSRS,
+  onNavigateToDecks,
+}) => {
+  const { fetchDecks } = useDeckStore();
   const [selectedDeckId, setSelectedDeckId] = useState<string>('all');
   const [mode, setMode] = useState<PracticeMode>('menu');
+
+  // Unified Hook: Đồng bộ dữ liệu thẻ, kiểm tra điều kiện & sinh đáp án nhiễu
+  const {
+    isLoading,
+    decks,
+    scopedCards,
+    pools,
+    checkEligibility,
+    generateQuizDistractors,
+  } = usePracticeCards(selectedDeckId);
+
+  // Modal thông báo lý do không đủ điều kiện (Kawaii Dialog thay alert)
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    modeTitle: string;
+    eligibility: EligibilityResult | null;
+  }>({
+    isOpen: false,
+    modeTitle: '',
+    eligibility: null,
+  });
 
   // Thẻ cho phiên luyện tập
   const [practiceCards, setPracticeCards] = useState<Card[]>([]);
@@ -59,7 +89,13 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
   const typingInputRef = useRef<HTMLInputElement>(null);
 
   // Matching game state
-  const [matchingCards, setMatchingCards] = useState<{ id: string; text: string; cardId: string; type: 'front' | 'back'; isMatched: boolean }[]>([]);
+  const [matchingCards, setMatchingCards] = useState<{
+    id: string;
+    text: string;
+    cardId: string;
+    type: 'front' | 'back';
+    isMatched: boolean;
+  }[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<number | null>(null);
 
   // Speed review state (60s timer)
@@ -70,47 +106,63 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
     fetchDecks();
   }, [fetchDecks]);
 
-  // Thu thập danh sách thẻ để chơi
-  const getCardsForPractice = (): Card[] => {
-    let pool: Card[] = [];
-    if (selectedDeckId === 'all') {
-      decks.forEach((d) => {
-        if (d.cards) pool.push(...d.cards);
-      });
-    } else {
-      const d = decks.find((x) => x.id === selectedDeckId);
-      if (d?.cards) pool = [...d.cards];
-    }
-    return pool;
-  };
-
-  // Khởi động chế độ chơi
-  const startMode = (chosenMode: PracticeMode) => {
-    const cards = getCardsForPractice();
-    if (cards.length < 4 && (chosenMode === 'quiz' || chosenMode === 'matching')) {
-      alert('Bộ thẻ cần có ít nhất 4 từ để bắt đầu chế độ này!');
+  // Khởi động chế độ chơi với kiểm tra điều kiện kỹ lưỡng
+  const handleStartMode = (
+    chosenMode: PracticeModeType,
+    modeTitle: string
+  ) => {
+    // 1. Chế độ SRS chuẩn
+    if (chosenMode === 'srs') {
+      const eligibility = checkEligibility('srs');
+      if (!eligibility.isEligible) {
+        setModalState({ isOpen: true, modeTitle, eligibility });
+        return;
+      }
+      onStartSRS();
       return;
     }
 
-    if (cards.length === 0) {
-      alert('Chưa có thẻ nào trong bộ để luyện tập.');
+    // 2. Các chế độ trò chơi khác
+    const eligibility = checkEligibility(chosenMode);
+    if (!eligibility.isEligible) {
+      setModalState({ isOpen: true, modeTitle, eligibility });
       return;
     }
 
-    // Xáo trộn ngẫu nhiên
-    const shuffled = [...cards].sort(() => Math.random() - 0.5);
-
-    if (chosenMode === 'leech') {
-      // Lọc thẻ sai nhiều (lapses >= 1 hoặc ngẫu nhiên nếu chưa có)
-      const leeches = shuffled.filter((c) => (c.schedule?.lapses || 0) >= 1);
-      setPracticeCards(leeches.length > 0 ? leeches : shuffled.slice(0, 10));
-    } else {
-      setPracticeCards(shuffled);
+    // Lấy đúng pool thẻ của chế độ đó
+    let cardsToPlay: Card[] = [];
+    switch (chosenMode) {
+      case 'quiz':
+        cardsToPlay = pools.quizCards;
+        break;
+      case 'typing':
+        cardsToPlay = pools.typingCards;
+        break;
+      case 'listening':
+        cardsToPlay = pools.listeningCards;
+        break;
+      case 'matching':
+        cardsToPlay = pools.matchingCards;
+        break;
+      case 'hanzi':
+        cardsToPlay = pools.hanziCards;
+        break;
+      case 'speed':
+        cardsToPlay = pools.speedCards;
+        break;
+      case 'leech':
+        cardsToPlay = pools.leechCards;
+        break;
+      default:
+        cardsToPlay = scopedCards;
     }
 
+    // Xáo trộn ngẫu nhiên danh sách thẻ
+    const shuffled = [...cardsToPlay].sort(() => Math.random() - 0.5);
+    setPracticeCards(shuffled);
     setCurrentIdx(0);
     setScore(0);
-    setMode(chosenMode);
+    setMode(chosenMode as PracticeMode);
 
     if (chosenMode === 'quiz' || chosenMode === 'listening') {
       setupQuizQuestion(shuffled[0], shuffled);
@@ -127,23 +179,17 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
     }
   };
 
-  // Thiết lập câu hỏi trắc nghiệm (1 đáp án đúng + 3 đáp án nhiễu)
+  // Thiết lập câu hỏi trắc nghiệm (1 đáp án đúng + 3 đáp án nhiễu thông minh, không trùng lặp)
   const setupQuizQuestion = (card: Card, pool: Card[]) => {
     if (!card) return;
-    const correct = card.back;
-    const distractors = pool
-      .filter((c) => c.id !== card.id)
-      .map((c) => c.back)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
-
-    const options = [correct, ...distractors].sort(() => Math.random() - 0.5);
+    const options = generateQuizDistractors(card, pool);
     setQuizOptions(options);
     setSelectedAnswer(null);
     setIsAnswerChecked(false);
 
     if (mode === 'listening') {
-      const lang = card.level?.startsWith('HSK') ? 'zh' : 'en';
+      const lang =
+        card.level?.startsWith('HSK') || (card as any).deckLang === 'zh' ? 'zh' : 'en';
       ttsService.speak(card.front, lang, card.audioUrl);
     }
   };
@@ -207,7 +253,8 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
 
   // Thiết lập Matching Game (Ghép cặp 4-6 từ)
   const setupMatchingGame = (pool: Card[]) => {
-    const selected = pool.slice(0, 6);
+    const pairCount = Math.min(pool.length, 6);
+    const selected = pool.slice(0, pairCount);
     const items: any[] = [];
 
     selected.forEach((c) => {
@@ -265,8 +312,28 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
 
   // 1. MENU CHÍNH: DANH SÁCH 8 CHẾ ĐỘ LUYỆN TẬP
   if (mode === 'menu') {
+    // Tính trạng thái điều kiện của từng chế độ để hiển thị badge
+    const elSRS = checkEligibility('srs');
+    const elQuiz = checkEligibility('quiz');
+    const elTyping = checkEligibility('typing');
+    const elListening = checkEligibility('listening');
+    const elMatching = checkEligibility('matching');
+    const elHanzi = checkEligibility('hanzi');
+    const elSpeed = checkEligibility('speed');
+    const elLeech = checkEligibility('leech');
+
     return (
       <div className="space-y-6 pb-20 max-w-4xl mx-auto">
+        {/* Modal Thông Báo Thân Thiện (Thay Alert) */}
+        <PracticeIneligibleModal
+          isOpen={modalState.isOpen}
+          onClose={() => setModalState((prev) => ({ ...prev, isOpen: false }))}
+          modeTitle={modalState.modeTitle}
+          eligibility={modalState.eligibility}
+          onSelectAllDecks={() => setSelectedDeckId('all')}
+          onOpenAddCards={onNavigateToDecks}
+        />
+
         {/* Tiêu đề & Chọn bộ từ */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -275,7 +342,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               <span>8 Chế Độ Luyện Tập 🎮</span>
             </h1>
             <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-0.5">
-              Học qua trò chơi phản xạ, gõ từ, nghe và tập viết nét
+              Học qua trò chơi phản xạ, gõ từ, nghe và tập viết nét ({scopedCards.length} từ khả dụng)
             </p>
           </div>
 
@@ -287,28 +354,50 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               onChange={(e) => setSelectedDeckId(e.target.value)}
               className="px-3 py-2 min-h-[44px] rounded-2xl bg-white dark:bg-dark-card border border-kawaii-200 dark:border-dark-border text-base sm:text-xs font-bold text-gray-800 dark:text-gray-200 outline-none focus:border-kawaii-500 shadow-xs"
             >
-              <option value="all">Tất cả bộ thẻ</option>
+              <option value="all">
+                Tất cả bộ thẻ ({decks.reduce((acc, d) => acc + (d.cards?.length || d.stats?.totalCards || 0), 0)} từ)
+              </option>
               {decks.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.title} ({d.cards?.length || 0} từ)
+                  {d.title} ({d.cards?.length ?? d.stats?.totalCards ?? 0} từ)
                 </option>
               ))}
             </select>
           </div>
         </div>
 
+        {/* Loading state trong lúc nạp thẻ chống race-condition */}
+        {isLoading && decks.length === 0 && (
+          <div className="p-8 rounded-3xl bg-white dark:bg-dark-card border border-kawaii-100 dark:border-dark-border text-center space-y-3">
+            <div className="w-8 h-8 border-3 border-kawaii-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs font-bold text-kawaii-600">Đang chuẩn bị bộ thẻ cho bạn... 🌸</p>
+          </div>
+        )}
+
         {/* Lưới 8 Thẻ Chế Độ - Mobile Friendly */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          
           {/* Chế độ 1: SRS Ôn Tập Chuẩn */}
           <div
-            onClick={onStartSRS}
-            className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-pink-50 to-white dark:from-dark-card dark:to-dark-cardHover border-2 border-kawaii-300 dark:border-dark-border shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
+            onClick={() => handleStartMode('srs', '1. Ôn Tập Chuẩn FSRS')}
+            className={`p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-pink-50 to-white dark:from-dark-card dark:to-dark-cardHover border-2 border-kawaii-300 dark:border-dark-border shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3 transition-all ${
+              !elSRS.isEligible ? 'opacity-85' : ''
+            }`}
           >
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-2xl sm:text-3xl">🌸</span>
-                <span className="px-2 py-0.5 rounded-full bg-kawaii-500 text-white text-[10px] font-bold">Khuyên dùng</span>
+                <div className="flex items-center gap-1">
+                  <span className="px-2 py-0.5 rounded-full bg-kawaii-500 text-white text-[10px] font-bold">
+                    Khuyên dùng
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    elSRS.isEligible
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                  }`}>
+                    {elSRS.currentCount} đến hạn
+                  </span>
+                </div>
               </div>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 1. Ôn Tập Chuẩn FSRS
@@ -318,17 +407,28 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              Vào học ngay →
+              {elSRS.isEligible ? 'Vào học ngay →' : 'Đã học xong hôm nay 🌸'}
             </span>
           </div>
 
           {/* Chế độ 2: Trắc Nghiệm 4 Đáp Án */}
           <div
-            onClick={() => startMode('quiz')}
-            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
+            onClick={() => handleStartMode('quiz', '2. Trắc Nghiệm 4 Đáp Án')}
+            className={`p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3 transition-all ${
+              !elQuiz.isEligible ? 'opacity-85' : ''
+            }`}
           >
             <div>
-              <span className="text-2xl sm:text-3xl">🎯</span>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl sm:text-3xl">🎯</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  elQuiz.isEligible
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                }`}>
+                  {elQuiz.isEligible ? `${elQuiz.currentCount} từ sẵn sàng` : `Cần ≥4 từ (${elQuiz.currentCount}/4)`}
+                </span>
+              </div>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 2. Trắc Nghiệm 4 Đáp Án
               </h3>
@@ -337,17 +437,28 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              Chơi ngay →
+              {elQuiz.isEligible ? 'Chơi ngay →' : 'Xem điều kiện →'}
             </span>
           </div>
 
           {/* Chế độ 3: Gõ Đáp Án */}
           <div
-            onClick={() => startMode('typing')}
-            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
+            onClick={() => handleStartMode('typing', '3. Gõ Từ / Pinyin Chính Xác')}
+            className={`p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3 transition-all ${
+              !elTyping.isEligible ? 'opacity-85' : ''
+            }`}
           >
             <div>
-              <span className="text-2xl sm:text-3xl">⌨️</span>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl sm:text-3xl">⌨️</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  elTyping.isEligible
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                }`}>
+                  {elTyping.isEligible ? `${elTyping.currentCount} từ` : 'Cần có thẻ'}
+                </span>
+              </div>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 3. Gõ Từ / Pinyin Chính Xác
               </h3>
@@ -356,17 +467,28 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              Chơi ngay →
+              {elTyping.isEligible ? 'Chơi ngay →' : 'Xem điều kiện →'}
             </span>
           </div>
 
           {/* Chế độ 4: Luyện Nghe TTS */}
           <div
-            onClick={() => startMode('listening')}
-            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
+            onClick={() => handleStartMode('listening', '4. Luyện Nghe & Đoán Từ')}
+            className={`p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3 transition-all ${
+              !elListening.isEligible ? 'opacity-85' : ''
+            }`}
           >
             <div>
-              <span className="text-2xl sm:text-3xl">🎧</span>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl sm:text-3xl">🎧</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  elListening.isEligible
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                }`}>
+                  {elListening.isEligible ? `${elListening.currentCount} từ` : `Cần ≥4 từ (${elListening.currentCount}/4)`}
+                </span>
+              </div>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 4. Luyện Nghe & Đoán Từ
               </h3>
@@ -375,17 +497,28 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              Chơi ngay →
+              {elListening.isEligible ? 'Chơi ngay →' : 'Xem điều kiện →'}
             </span>
           </div>
 
           {/* Chế độ 5: Ghép Cặp (Matching Game) */}
           <div
-            onClick={() => startMode('matching')}
-            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
+            onClick={() => handleStartMode('matching', '5. Ghép Cặp Từ & Nghĩa')}
+            className={`p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3 transition-all ${
+              !elMatching.isEligible ? 'opacity-85' : ''
+            }`}
           >
             <div>
-              <span className="text-2xl sm:text-3xl">🧩</span>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl sm:text-3xl">🧩</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  elMatching.isEligible
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                }`}>
+                  {elMatching.isEligible ? `${elMatching.currentCount} từ khả dụng` : `Cần ≥4 từ (${elMatching.currentCount}/4)`}
+                </span>
+              </div>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 5. Ghép Cặp Từ & Nghĩa
               </h3>
@@ -394,17 +527,28 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              Chơi ngay →
+              {elMatching.isEligible ? 'Chơi ngay →' : 'Xem điều kiện →'}
             </span>
           </div>
 
           {/* Chế độ 6: Tập Viết Chữ Hán */}
           <div
-            onClick={() => startMode('hanzi')}
-            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
+            onClick={() => handleStartMode('hanzi', '6. Tập Viết Chữ Hán')}
+            className={`p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3 transition-all ${
+              !elHanzi.isEligible ? 'opacity-85' : ''
+            }`}
           >
             <div>
-              <span className="text-2xl sm:text-3xl">✍️</span>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl sm:text-3xl">✍️</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  elHanzi.isEligible
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                    : 'bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'
+                }`}>
+                  {elHanzi.isEligible ? `${elHanzi.currentCount} chữ Hán` : 'Chỉ tiếng Trung 🇨🇳'}
+                </span>
+              </div>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 6. Tập Viết Chữ Hán
               </h3>
@@ -413,17 +557,28 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              Chơi ngay →
+              {elHanzi.isEligible ? 'Chơi ngay →' : 'Xem điều kiện →'}
             </span>
           </div>
 
           {/* Chế độ 7: Speed Review (60 Giây) */}
           <div
-            onClick={() => startMode('speed')}
-            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
+            onClick={() => handleStartMode('speed', '7. Thử Thách 60 Giây')}
+            className={`p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3 transition-all ${
+              !elSpeed.isEligible ? 'opacity-85' : ''
+            }`}
           >
             <div>
-              <span className="text-2xl sm:text-3xl">⚡</span>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl sm:text-3xl">⚡</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  elSpeed.isEligible
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                }`}>
+                  {elSpeed.isEligible ? `${elSpeed.currentCount} từ` : `Cần ≥4 từ (${elSpeed.currentCount}/4)`}
+                </span>
+              </div>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 7. Thử Thách 60 Giây
               </h3>
@@ -432,17 +587,26 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              Chơi ngay →
+              {elSpeed.isEligible ? 'Chơi ngay →' : 'Xem điều kiện →'}
             </span>
           </div>
 
           {/* Chế độ 8: Ôn Thẻ Khó (Leech Review) */}
           <div
-            onClick={() => startMode('leech')}
-            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3"
+            onClick={() => handleStartMode('leech', '8. Luyện Thẻ Khó / Hay Quên')}
+            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3 transition-all"
           >
             <div>
-              <span className="text-2xl sm:text-3xl">🔥</span>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl sm:text-3xl">🔥</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  elLeech.isEligible
+                    ? 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                }`}>
+                  {elLeech.isEligible ? `${elLeech.currentCount} thẻ khó` : 'Chưa có thẻ khó'}
+                </span>
+              </div>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
                 8. Luyện Thẻ Khó / Hay Quên
               </h3>
@@ -451,10 +615,9 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               </p>
             </div>
             <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              Chơi ngay →
+              {elLeech.isEligible ? 'Chơi ngay →' : 'Xem chi tiết →'}
             </span>
           </div>
-
         </div>
       </div>
     );
@@ -498,7 +661,10 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               <div>
                 <button
                   onClick={() => {
-                    const lang = currentCard?.level?.startsWith('HSK') ? 'zh' : 'en';
+                    const lang =
+                      currentCard?.level?.startsWith('HSK') || (currentCard as any)?.deckLang === 'zh'
+                        ? 'zh'
+                        : 'en';
                     ttsService.speak(currentCard?.front || '', lang, currentCard?.audioUrl);
                   }}
                   className="w-16 h-16 rounded-full bg-kawaii-500 text-white shadow-kawaii flex items-center justify-center mx-auto active:scale-90 transition-transform"
@@ -530,12 +696,15 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
             const isSelected = selectedAnswer === opt;
             const isCorrect = opt === currentCard?.back;
 
-            let btnStyle = 'border-kawaii-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-gray-100';
+            let btnStyle =
+              'border-kawaii-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-gray-100';
             if (isAnswerChecked) {
               if (isCorrect) {
-                btnStyle = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold';
+                btnStyle =
+                  'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold';
               } else if (isSelected) {
-                btnStyle = 'border-red-500 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300';
+                btnStyle =
+                  'border-red-500 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300';
               } else {
                 btnStyle = 'opacity-40 border-gray-200 bg-gray-50';
               }
@@ -549,8 +718,12 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
                 className={`w-full min-h-[54px] p-3.5 rounded-2xl border-2 text-sm font-bold text-left transition-all active:scale-95 shadow-xs flex items-center justify-between ${btnStyle}`}
               >
                 <span className="flex-1 pr-2">{opt}</span>
-                {isAnswerChecked && isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
-                {isAnswerChecked && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-500 shrink-0" />}
+                {isAnswerChecked && isCorrect && (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                )}
+                {isAnswerChecked && isSelected && !isCorrect && (
+                  <XCircle className="w-5 h-5 text-red-500 shrink-0" />
+                )}
               </button>
             );
           })}
@@ -642,7 +815,9 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
               {typingResult === 'correct' ? (
                 <span>🎉 Chính xác tuyệt vời!</span>
               ) : (
-                <span>❌ Chưa đúng! Đáp án: {currentCard?.front} ({currentCard?.phonetic})</span>
+                <span>
+                  ❌ Chưa đúng! Đáp án: {currentCard?.front} ({currentCard?.phonetic})
+                </span>
               )}
             </div>
           )}
@@ -803,9 +978,9 @@ export const PracticePage: React.FC<PracticePageProps> = ({ onStartSRS }) => {
                   setMode('menu');
                 }
               }}
-              className="w-full py-3.5 min-h-[48px] rounded-2xl bg-gradient-to-r from-red-500 to-rose-500 text-white font-bold text-xs shadow-md active:scale-95"
+              className="w-full py-3.5 min-h-[48px] rounded-2xl bg-kawaii-500 hover:bg-kawaii-600 text-white font-bold text-sm shadow-kawaii active:scale-95 transition-transform"
             >
-              Đã nhớ lại từ này! Tiếp tục →
+              {currentIdx + 1 < practiceCards.length ? 'Thẻ khó tiếp theo →' : 'Hoàn thành ôn thẻ khó 🎉'}
             </button>
           </div>
         </div>

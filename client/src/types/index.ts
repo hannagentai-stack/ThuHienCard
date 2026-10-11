@@ -30,6 +30,7 @@ export interface Card {
   cardType?: string; // 'standard' | 'cloze'
   createdAt?: string;
   updatedAt?: string;
+  isDeleted?: boolean;
   schedule?: CardSchedule | null;
 }
 

@@ -17,20 +17,28 @@ export interface LocalDeck {
 export interface LocalCard {
   id: string;
   deckId: string;
-  cardType: string;
-  term: string;
+  cardType?: string;
+  front?: string;
+  back?: string;
+  term?: string;
+  meaning?: string;
+  phonetic?: string;
   pinyin?: string;
   ipa?: string;
-  meaning: string;
+  example?: string;
   exampleSentence?: string;
+  exampleTrans?: string;
   exampleMeaning?: string;
   notes?: string;
   audioUrl?: string;
   imageUrl?: string;
   tags?: string;
+  tagsJson?: string;
+  level?: string;
   isDeleted?: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  schedule?: any;
 }
 
 export interface LocalCardSchedule {

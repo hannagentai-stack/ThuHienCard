@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { type Deck, type Card } from '../types';
+import { db } from '../db/indexedDB';
 
 interface DeckState {
   decks: Deck[];
@@ -29,7 +30,28 @@ export const useDeckStore = create<DeckState>((set, get) => ({
 
   fetchDecks: async () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) return;
+    if (!token) {
+      try {
+        const localDecks = await db.decks.toArray();
+        if (localDecks.length > 0) {
+          const localCards = await db.cards.toArray();
+          const mappedDecks = localDecks.map((ld: any) => ({
+            ...ld,
+            title: ld.name || ld.title,
+            cards: localCards.filter((c: any) => c.deckId === ld.id).map((c: any) => ({
+              ...c,
+              front: c.front || c.term || '',
+              back: c.back || c.meaning || '',
+              phonetic: c.phonetic || c.pinyin || c.ipa || '',
+            })),
+          }));
+          set({ decks: mappedDecks as any, isLoading: false });
+        }
+      } catch {
+        // Bỏ qua lỗi IndexedDB nếu có
+      }
+      return;
+    }
 
     set({ isLoading: true, error: null });
     try {
@@ -39,10 +61,66 @@ export const useDeckStore = create<DeckState>((set, get) => ({
       const data = await res.json();
       if (res.ok) {
         set({ decks: data.decks, isLoading: false });
+        // Đồng bộ lưu đệm vào IndexedDB để hỗ trợ học offline
+        try {
+          const decksToSave = data.decks.map((d: any) => ({
+            id: d.id,
+            userId: d.userId || '',
+            name: d.title,
+            language: d.language === 'zh' ? 'CHINESE' : 'ENGLISH',
+            description: d.description || '',
+            icon: d.icon || '',
+            color: d.color || '',
+            updatedAt: d.updatedAt || new Date().toISOString(),
+            createdAt: d.createdAt || new Date().toISOString(),
+          }));
+          await db.decks.bulkPut(decksToSave);
+
+          const allCards: any[] = [];
+          data.decks.forEach((d: any) => {
+            if (d.cards && Array.isArray(d.cards)) {
+              d.cards.forEach((c: any) => {
+                allCards.push({
+                  ...c,
+                  term: c.front,
+                  meaning: c.back,
+                  pinyin: d.language === 'zh' ? c.phonetic : undefined,
+                  ipa: d.language === 'en' ? c.phonetic : undefined,
+                });
+              });
+            }
+          });
+          if (allCards.length > 0) {
+            await db.cards.bulkPut(allCards);
+          }
+        } catch {
+          // Bỏ qua lỗi ghi đệm
+        }
       } else {
         set({ isLoading: false, error: data.message });
       }
     } catch {
+      // Fallback sang IndexedDB khi mất mạng hoặc server ngủ
+      try {
+        const localDecks = await db.decks.toArray();
+        if (localDecks.length > 0) {
+          const localCards = await db.cards.toArray();
+          const mappedDecks = localDecks.map((ld: any) => ({
+            ...ld,
+            title: ld.name || ld.title,
+            cards: localCards.filter((c: any) => c.deckId === ld.id).map((c: any) => ({
+              ...c,
+              front: c.front || c.term || '',
+              back: c.back || c.meaning || '',
+              phonetic: c.phonetic || c.pinyin || c.ipa || '',
+            })),
+          }));
+          set({ decks: mappedDecks as any, isLoading: false });
+          return;
+        }
+      } catch {
+        // Bỏ qua lỗi fallback
+      }
       set({ isLoading: false, error: 'Không thể tải danh sách bộ thẻ.' });
     }
   },

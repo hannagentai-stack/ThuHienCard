@@ -169,6 +169,7 @@ export function App() {
           {activeTab === 'practice' && (
             <PracticePage
               onStartSRS={() => handleStartStudy(null)}
+              onNavigateToDecks={() => setActiveTab('decks')}
             />
           )}
 
