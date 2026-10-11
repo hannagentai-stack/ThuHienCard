@@ -47,7 +47,7 @@ COPY --from=builder /app/server/prisma ./server/prisma
 COPY --from=builder /app/server/node_modules ./server/node_modules
 COPY --from=builder /app/client/dist ./client/dist
 
-# Thiết lập thư mục dữ liệu SQLite
+# Thiết lập thư mục dữ liệu và prisma
 RUN mkdir -p /app/server/prisma
 
 # Khởi tạo database và chạy server

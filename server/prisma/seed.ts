@@ -28,16 +28,21 @@ async function main() {
   console.log(`✅ Đã tạo tài khoản demo: ${demoUser.username} (mật khẩu: password123)`);
 
   // 2. Bộ thẻ Tiếng Trung mẫu (10 từ HSK1 thông dụng)
-  const zhDeck = await prisma.deck.create({
-    data: {
-      userId: demoUser.id,
-      title: '10 Từ Vựng HSK 1 Cơ Bản 🇨🇳',
-      description: 'Các từ vựng tiếng Trung nhập môn thiết yếu kèm pinyin và ví dụ.',
-      language: 'zh',
-      color: '#FF5C9E',
-      icon: '🇨🇳',
-    },
+  let zhDeck = await prisma.deck.findFirst({
+    where: { userId: demoUser.id, language: 'zh' },
   });
+
+  if (!zhDeck) {
+    zhDeck = await prisma.deck.create({
+      data: {
+        userId: demoUser.id,
+        title: '10 Từ Vựng HSK 1 Cơ Bản 🇨🇳',
+        description: 'Các từ vựng tiếng Trung nhập môn thiết yếu kèm pinyin và ví dụ.',
+        language: 'zh',
+        color: '#FF5C9E',
+        icon: '🇨🇳',
+      },
+    });
 
   const zhCards = [
     {
@@ -171,18 +176,24 @@ async function main() {
       },
     });
   }
+}
 
   // 3. Bộ thẻ Tiếng Anh mẫu (10 từ Oxford 3000 thông dụng)
-  const enDeck = await prisma.deck.create({
-    data: {
-      userId: demoUser.id,
-      title: '10 Từ Vựng Tiếng Anh Giao Tiếp Hàng Ngày 🇬🇧',
-      description: 'Từ vựng tiếng Anh cơ bản có phiên âm IPA và ví dụ thực tế.',
-      language: 'en',
-      color: '#A855F7',
-      icon: '🇬🇧',
-    },
+  let enDeck = await prisma.deck.findFirst({
+    where: { userId: demoUser.id, language: 'en' },
   });
+
+  if (!enDeck) {
+    enDeck = await prisma.deck.create({
+      data: {
+        userId: demoUser.id,
+        title: '10 Từ Vựng Tiếng Anh Giao Tiếp Hàng Ngày 🇬🇧',
+        description: 'Từ vựng tiếng Anh cơ bản có phiên âm IPA và ví dụ thực tế.',
+        language: 'en',
+        color: '#A855F7',
+        icon: '🇬🇧',
+      },
+    });
 
   const enCards = [
     {
@@ -315,6 +326,7 @@ async function main() {
       },
     });
   }
+}
 
   console.log('🎉 Đã nạp thành công bộ thẻ tiếng Trung & tiếng Anh mẫu!');
 }
