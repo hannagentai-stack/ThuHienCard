@@ -24,6 +24,7 @@ import { MatchingGameView } from '../components/practice/MatchingGameView';
 import {
   checkVietnameseMeaningMatch,
   checkForeignWordMatch,
+  detectCardLanguage,
 } from '../utils/typingMatch';
 
 export type TypingDirection = 'both' | 'foreign_to_vi' | 'vi_to_foreign';
@@ -203,8 +204,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     setIsAnswerChecked(false);
 
     if (mode === 'listening') {
-      const lang =
-        card.level?.startsWith('HSK') || (card as any).deckLang === 'zh' ? 'zh' : 'en';
+      const lang = detectCardLanguage(card, decks);
       ttsService.speak(card.front, lang, card.audioUrl);
     }
   };
@@ -240,12 +240,14 @@ export const PracticePage: React.FC<PracticePageProps> = ({
   // Kiểm tra gõ đáp án 2 chiều thông minh
   const handleCheckTyping = (e: React.FormEvent) => {
     e.preventDefault();
+    if (typingResult !== null) return;
+    if (!typedInput.trim()) return;
+
     const current = practiceCards[currentIdx];
     if (!current) return;
 
     const currentDir = typingQuestionDirs[currentIdx] || 'foreign_to_vi';
-    const lang =
-      current.level?.startsWith('HSK') || (current as any).deckLang === 'zh' ? 'zh' : 'en';
+    const lang = detectCardLanguage(current, decks);
 
     let isCorrect = false;
     if (currentDir === 'foreign_to_vi') {
@@ -273,7 +275,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
       } else {
         finishGame();
       }
-    }, 1400);
+    }, isCorrect ? 1200 : 2200);
   };
 
   // Đếm ngược Speed Review (60s)
@@ -731,10 +733,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
               <div>
                 <button
                   onClick={() => {
-                    const lang =
-                      currentCard?.level?.startsWith('HSK') || (currentCard as any)?.deckLang === 'zh'
-                        ? 'zh'
-                        : 'en';
+                    const lang = detectCardLanguage(currentCard, decks);
                     ttsService.speak(currentCard?.front || '', lang, currentCard?.audioUrl);
                   }}
                   className="w-16 h-16 rounded-full bg-kawaii-500 text-white shadow-kawaii flex items-center justify-center mx-auto active:scale-90 transition-transform"
@@ -806,10 +805,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
   if (mode === 'typing') {
     const currentCard = practiceCards[currentIdx];
     const currentDir = typingQuestionDirs[currentIdx] || 'foreign_to_vi';
-    const cardLang =
-      currentCard?.level?.startsWith('HSK') || (currentCard as any)?.deckLang === 'zh'
-        ? 'zh'
-        : 'en';
+    const cardLang = detectCardLanguage(currentCard, decks);
     const isChinese = cardLang === 'zh';
 
     return (
@@ -990,9 +986,10 @@ export const PracticePage: React.FC<PracticePageProps> = ({
 
             <button
               type="submit"
-              className="w-full py-3.5 min-h-[48px] rounded-2xl bg-kawaii-500 hover:bg-kawaii-600 text-white font-bold text-sm shadow-kawaii active:scale-95 transition-transform"
+              disabled={typingResult !== null || !typedInput.trim()}
+              className="w-full py-3.5 min-h-[48px] rounded-2xl bg-kawaii-500 hover:bg-kawaii-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-kawaii active:scale-95 transition-transform"
             >
-              Kiểm tra đáp án
+              {typingResult !== null ? 'Đang chuyển câu tiếp...' : 'Kiểm tra đáp án (Enter)'}
             </button>
           </form>
 
