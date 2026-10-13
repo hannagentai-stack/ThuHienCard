@@ -8,6 +8,7 @@ import {
   Timer,
   ArrowLeft,
   Flame,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useDeckStore } from '../stores/deckStore';
 import { type Card } from '../types';
@@ -20,6 +21,12 @@ import {
 } from '../hooks/usePracticeCards';
 import { PracticeIneligibleModal } from '../components/practice/PracticeIneligibleModal';
 import { MatchingGameView } from '../components/practice/MatchingGameView';
+import {
+  checkVietnameseMeaningMatch,
+  checkForeignWordMatch,
+} from '../utils/typingMatch';
+
+export type TypingDirection = 'both' | 'foreign_to_vi' | 'vi_to_foreign';
 
 type PracticeMode =
   | 'menu'
@@ -88,6 +95,18 @@ export const PracticePage: React.FC<PracticePageProps> = ({
   const [typedInput, setTypedInput] = useState('');
   const [typingResult, setTypingResult] = useState<'correct' | 'wrong' | null>(null);
   const typingInputRef = useRef<HTMLInputElement>(null);
+
+  // Hướng kiểm tra gõ từ 2 chiều: 'both' | 'foreign_to_vi' | 'vi_to_foreign'
+  const [typingDirection, setTypingDirection] = useState<TypingDirection>(() => {
+    return (localStorage.getItem('practice_typing_direction') as TypingDirection) || 'both';
+  });
+  const [typingQuestionDirs, setTypingQuestionDirs] = useState<('foreign_to_vi' | 'vi_to_foreign')[]>([]);
+  const [showPinyinHint, setShowPinyinHint] = useState(false);
+
+  const handleSetTypingDirection = (dir: TypingDirection) => {
+    setTypingDirection(dir);
+    localStorage.setItem('practice_typing_direction', dir);
+  };
 
   // Speed review state (60s timer)
   const [timeLeft, setTimeLeft] = useState(60);
@@ -162,6 +181,13 @@ export const PracticePage: React.FC<PracticePageProps> = ({
       setIsSpeedRunning(true);
       setupQuizQuestion(shuffled[0], shuffled);
     } else if (chosenMode === 'typing') {
+      const dirs = shuffled.map((_, idx) => {
+        if (typingDirection === 'foreign_to_vi') return 'foreign_to_vi';
+        if (typingDirection === 'vi_to_foreign') return 'vi_to_foreign';
+        return idx % 2 === 0 ? 'foreign_to_vi' : 'vi_to_foreign';
+      });
+      setTypingQuestionDirs(dirs);
+      setShowPinyinHint(false);
       setTypedInput('');
       setTypingResult(null);
       setTimeout(() => typingInputRef.current?.focus(), 150);
@@ -211,21 +237,30 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     typingInputRef.current?.focus();
   };
 
-  // Kiểm tra gõ đáp án
+  // Kiểm tra gõ đáp án 2 chiều thông minh
   const handleCheckTyping = (e: React.FormEvent) => {
     e.preventDefault();
     const current = practiceCards[currentIdx];
     if (!current) return;
 
-    const target = current.front.toLowerCase().trim();
-    const input = typedInput.toLowerCase().trim();
-    const phoneticTarget = (current.phonetic || '').toLowerCase().trim();
+    const currentDir = typingQuestionDirs[currentIdx] || 'foreign_to_vi';
+    const lang =
+      current.level?.startsWith('HSK') || (current as any).deckLang === 'zh' ? 'zh' : 'en';
 
-    // Cho phép gõ đúng từ hoặc đúng pinyin (tiếng Trung)
-    const isCorrect = input === target || (phoneticTarget && input === phoneticTarget);
+    let isCorrect = false;
+    if (currentDir === 'foreign_to_vi') {
+      // Chiều 1: Hiện tiếng Trung/Anh ➔ Nhập nghĩa tiếng Việt
+      isCorrect = checkVietnameseMeaningMatch(typedInput, current.back);
+    } else {
+      // Chiều 2: Hiện nghĩa tiếng Việt ➔ Nhập tiếng Trung / tiếng Anh
+      isCorrect = checkForeignWordMatch(typedInput, current.front, current.phonetic, lang);
+    }
+
     setTypingResult(isCorrect ? 'correct' : 'wrong');
-
     if (isCorrect) setScore((s) => s + 1);
+
+    // Phát âm từ vựng để hỗ trợ người dùng luyện nghe
+    ttsService.speak(current.front, lang, current.audioUrl);
 
     setTimeout(() => {
       const next = currentIdx + 1;
@@ -233,6 +268,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
         setCurrentIdx(next);
         setTypedInput('');
         setTypingResult(null);
+        setShowPinyinHint(false);
         typingInputRef.current?.focus();
       } else {
         finishGame();
@@ -267,6 +303,16 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     const elHanzi = checkEligibility('hanzi');
     const elSpeed = checkEligibility('speed');
     const elLeech = checkEligibility('leech');
+
+    const isChineseDeck =
+      selectedDeckId === 'all'
+        ? scopedCards.some(
+            (c) =>
+              (c as any).deckLang === 'zh' ||
+              c.level?.startsWith('HSK') ||
+              /[\u4e00-\u9fa5]/.test(c.front || '')
+          )
+        : decks.find((d) => d.id === selectedDeckId)?.language !== 'en';
 
     return (
       <div className="space-y-6 pb-20 max-w-4xl mx-auto">
@@ -387,34 +433,112 @@ export const PracticePage: React.FC<PracticePageProps> = ({
             </span>
           </div>
 
-          {/* Chế độ 3: Gõ Đáp Án */}
+          {/* Chế độ 3: Kiểm Tra Nhập Từ 2 Chiều */}
           <div
-            onClick={() => handleStartMode('typing', '3. Gõ Từ / Pinyin Chính Xác')}
-            className={`p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii cursor-pointer btn-bounce flex flex-col justify-between space-y-3 transition-all ${
+            className={`p-4 sm:p-5 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border hover:border-kawaii-400 shadow-xs hover:shadow-kawaii flex flex-col justify-between space-y-3 transition-all ${
               !elTyping.isEligible ? 'opacity-85' : ''
             }`}
           >
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-2xl sm:text-3xl">⌨️</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                  elTyping.isEligible
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
-                }`}>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    elTyping.isEligible
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                      : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                  }`}
+                >
                   {elTyping.isEligible ? `${elTyping.currentCount} từ` : 'Cần có thẻ'}
                 </span>
               </div>
               <h3 className="font-extrabold text-base font-display text-gray-900 dark:text-white mt-2">
-                3. Gõ Từ / Pinyin Chính Xác
+                3. Kiểm Tra Nhập Từ (2 Chiều)
               </h3>
               <p className="text-xs text-gray-500 dark:text-dark-textMuted mt-1 leading-relaxed">
-                Rèn trí nhớ cơ bắp, hỗ trợ thanh phím nhanh thanh điệu tiếng Trung.
+                {isChineseDeck
+                  ? 'Hiện tiếng Trung ➔ Gõ nghĩa tiếng Việt hoặc Hiện nghĩa ➔ Gõ chữ Hán/Pinyin.'
+                  : 'Hiện tiếng Anh ➔ Gõ nghĩa tiếng Việt hoặc Hiện nghĩa ➔ Gõ từ tiếng Anh.'}
               </p>
+
+              {/* Bộ chọn hướng kiểm tra nhanh */}
+              <div className="mt-3 pt-2.5 border-t border-kawaii-100 dark:border-dark-border/60">
+                <span className="text-[11px] font-bold text-gray-400 block mb-1.5">
+                  Hướng kiểm tra:
+                </span>
+                <div className="grid grid-cols-3 gap-1 bg-gray-100/70 dark:bg-dark-bg p-1 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSetTypingDirection('both');
+                    }}
+                    className={`py-1.5 px-1 rounded-xl text-[10px] font-bold transition-all text-center ${
+                      typingDirection === 'both'
+                        ? 'bg-white dark:bg-dark-card text-kawaii-600 dark:text-kawaii-400 shadow-xs'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                    }`}
+                    title="Đan xen ngẫu nhiên cả hai chiều"
+                  >
+                    🔄 Cả 2 chiều
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSetTypingDirection('foreign_to_vi');
+                    }}
+                    className={`py-1.5 px-1 rounded-xl text-[10px] font-bold transition-all text-center ${
+                      typingDirection === 'foreign_to_vi'
+                        ? 'bg-white dark:bg-dark-card text-kawaii-600 dark:text-kawaii-400 shadow-xs'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                    }`}
+                    title={
+                      isChineseDeck
+                        ? 'Hiện tiếng Trung ➔ Nhập nghĩa tiếng Việt'
+                        : 'Hiện tiếng Anh ➔ Nhập nghĩa tiếng Việt'
+                    }
+                  >
+                    {isChineseDeck ? '🇨🇳 ➔ 🇻🇳' : '🇬🇧 ➔ 🇻🇳'} Sang Việt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSetTypingDirection('vi_to_foreign');
+                    }}
+                    className={`py-1.5 px-1 rounded-xl text-[10px] font-bold transition-all text-center ${
+                      typingDirection === 'vi_to_foreign'
+                        ? 'bg-white dark:bg-dark-card text-kawaii-600 dark:text-kawaii-400 shadow-xs'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                    }`}
+                    title={
+                      isChineseDeck
+                        ? 'Hiện nghĩa tiếng Việt ➔ Nhập chữ Hán/Pinyin'
+                        : 'Hiện nghĩa tiếng Việt ➔ Nhập từ tiếng Anh'
+                    }
+                  >
+                    {isChineseDeck ? '🇻🇳 ➔ 🇨🇳' : '🇻🇳 ➔ 🇬🇧'} Sang{' '}
+                    {isChineseDeck ? 'Trung' : 'Anh'}
+                  </button>
+                </div>
+              </div>
             </div>
-            <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-              {elTyping.isEligible ? 'Chơi ngay →' : 'Xem điều kiện →'}
-            </span>
+
+            <button
+              type="button"
+              onClick={() => handleStartMode('typing', '3. Kiểm Tra Nhập Từ (2 Chiều)')}
+              className="w-full text-xs font-bold text-kawaii-600 dark:text-kawaii-400 text-left pt-1 flex items-center justify-between"
+            >
+              <span>{elTyping.isEligible ? 'Bắt đầu kiểm tra →' : 'Xem điều kiện →'}</span>
+              <span className="text-[10px] text-gray-400 font-normal">
+                {typingDirection === 'both'
+                  ? 'Cả 2 chiều'
+                  : typingDirection === 'foreign_to_vi'
+                    ? 'Sang Tiếng Việt'
+                    : 'Sang Ngoại ngữ'}
+              </span>
+            </button>
           </div>
 
           {/* Chế độ 4: Luyện Nghe TTS */}
@@ -678,56 +802,172 @@ export const PracticePage: React.FC<PracticePageProps> = ({
     );
   }
 
-  // 3. MÀN HÌNH CHƠI: GÕ ĐÁP ÁN (TYPING QUIZ)
+  // 3. MÀN HÌNH CHƠI: KIỂM TRA NHẬP TỪ 2 CHIỀU
   if (mode === 'typing') {
     const currentCard = practiceCards[currentIdx];
+    const currentDir = typingQuestionDirs[currentIdx] || 'foreign_to_vi';
+    const cardLang =
+      currentCard?.level?.startsWith('HSK') || (currentCard as any)?.deckLang === 'zh'
+        ? 'zh'
+        : 'en';
+    const isChinese = cardLang === 'zh';
+
     return (
       <div className="max-w-md mx-auto space-y-4 pb-20 select-none">
-        <div className="flex items-center justify-between">
+        {/* Thanh header điều hướng & đổi chiều */}
+        <div className="flex items-center justify-between gap-1.5">
           <button
             onClick={() => setMode('menu')}
-            className="min-h-[44px] px-3 py-1.5 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-100 text-xs font-bold flex items-center gap-1 active:scale-95 shadow-xs"
+            className="min-h-[44px] px-3 py-1.5 rounded-2xl bg-white dark:bg-dark-card border border-kawaii-100 dark:border-dark-border text-xs font-bold flex items-center gap-1 active:scale-95 shadow-xs shrink-0"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </button>
-          <span className="text-xs font-bold text-kawaii-600 dark:text-kawaii-400">
-            Từ {currentIdx + 1} / {practiceCards.length}
-          </span>
-          <span className="text-xs font-black text-purple-600 dark:text-purple-400">
+
+          {/* Badge chiều câu hỏi kèm nút bấm đổi chiều */}
+          <button
+            type="button"
+            onClick={() => {
+              const newDirs = [...typingQuestionDirs];
+              newDirs[currentIdx] =
+                currentDir === 'foreign_to_vi' ? 'vi_to_foreign' : 'foreign_to_vi';
+              setTypingQuestionDirs(newDirs);
+              setTypedInput('');
+              setTypingResult(null);
+              setShowPinyinHint(false);
+              typingInputRef.current?.focus();
+            }}
+            className={`min-h-[36px] px-3 py-1 rounded-full text-[11px] font-extrabold flex items-center gap-1.5 transition-all active:scale-95 shadow-xs border ${
+              currentDir === 'foreign_to_vi'
+                ? 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-900'
+                : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900'
+            }`}
+            title="Nhấn để đổi chiều câu hỏi này"
+          >
+            <span>
+              {currentDir === 'foreign_to_vi'
+                ? isChinese
+                  ? '🇨🇳 ➔ 🇻🇳 Nhập Tiếng Việt'
+                  : '🇬🇧 ➔ 🇻🇳 Nhập Tiếng Việt'
+                : isChinese
+                  ? '🇻🇳 ➔ 🇨🇳 Nhập Tiếng Trung'
+                  : '🇻🇳 ➔ 🇬🇧 Nhập Tiếng Anh'}
+            </span>
+            <ArrowLeftRight className="w-3 h-3 opacity-70 shrink-0" />
+          </button>
+
+          <span className="text-xs font-black text-purple-600 dark:text-purple-400 shrink-0">
             Điểm: {score}
           </span>
         </div>
 
+        {/* Tiến độ câu */}
+        <div className="flex items-center justify-between text-xs px-1 text-gray-500 font-bold">
+          <span>
+            Từ {currentIdx + 1} / {practiceCards.length}
+          </span>
+          <span className="text-[11px] text-gray-400 font-normal">
+            {currentDir === 'foreign_to_vi'
+              ? 'Hiện ngoại ngữ ➔ Gõ nghĩa tiếng Việt'
+              : isChinese
+                ? 'Hiện nghĩa ➔ Gõ chữ Hán hoặc Pinyin'
+                : 'Hiện nghĩa ➔ Gõ từ tiếng Anh'}
+          </span>
+        </div>
+
+        {/* Khối thẻ câu hỏi */}
         <div className="p-6 rounded-3xl bg-white dark:bg-dark-card border-2 border-kawaii-200 dark:border-dark-border shadow-kawaii text-center space-y-3">
-          <span className="text-xs font-bold text-gray-400">Gõ từ tương ứng với nghĩa:</span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white font-display">
-            {currentCard?.back}
-          </h2>
-          {currentCard?.example && (
-            <p className="text-xs text-gray-500 dark:text-dark-textMuted italic">
-              "{currentCard.exampleTrans || currentCard.example}"
-            </p>
+          {currentDir === 'foreign_to_vi' ? (
+            /* CHIỀU 1: HIỆN TIẾNG TRUNG/NGOẠI NGỮ ➔ NHẬP NGHĨA TIẾNG VIỆT */
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-gray-400">
+                Nghĩa tiếng Việt của {isChinese ? 'từ tiếng Trung' : 'từ tiếng Anh'} này là gì?
+              </span>
+
+              <div className="flex items-center justify-center gap-2 py-1">
+                <h2 className="text-3xl sm:text-5xl font-black text-gray-900 dark:text-white font-hanzi">
+                  {currentCard?.front}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() =>
+                    ttsService.speak(
+                      currentCard?.front || '',
+                      cardLang,
+                      currentCard?.audioUrl
+                    )
+                  }
+                  className="p-2.5 rounded-full bg-kawaii-100 hover:bg-kawaii-200 text-kawaii-600 dark:bg-dark-bg dark:text-kawaii-300 active:scale-90 transition-transform shadow-xs"
+                  aria-label="Nghe phát âm"
+                  title="Nghe phát âm chuẩn"
+                >
+                  <Volume2 className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Gợi ý Pinyin nếu là tiếng Trung */}
+              {isChinese && currentCard?.phonetic && (
+                <div className="pt-0.5">
+                  {showPinyinHint ? (
+                    <span className="inline-block px-3 py-1 rounded-full text-xs font-mono font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200">
+                      Pinyin: {currentCard.phonetic}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowPinyinHint(true)}
+                      className="text-[11px] font-bold text-kawaii-600 dark:text-kawaii-400 hover:underline active:scale-95"
+                    >
+                      💡 Xem gợi ý Pinyin
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {currentCard?.example && (
+                <p className="text-xs text-gray-500 dark:text-dark-textMuted italic pt-1">
+                  "{currentCard.example}"
+                </p>
+              )}
+            </div>
+          ) : (
+            /* CHIỀU 2: HIỆN NGHĨA TIẾNG VIỆT ➔ NHẬP TIẾNG TRUNG/NGOẠI NGỮ */
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-gray-400">
+                Gõ {isChinese ? 'chữ Hán hoặc Pinyin' : 'từ tiếng Anh'} tương ứng với nghĩa:
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white font-display">
+                {currentCard?.back}
+              </h2>
+              {currentCard?.example && (
+                <p className="text-xs text-gray-500 dark:text-dark-textMuted italic">
+                  "{currentCard.exampleTrans || currentCard.example}"
+                </p>
+              )}
+
+              {/* Thanh phím nhanh chọn ký tự thanh điệu Pinyin trên điện thoại */}
+              {isChinese && (
+                <div className="pt-2">
+                  <span className="text-[11px] font-semibold text-gray-400 block mb-1">
+                    Phím thanh điệu Pinyin:
+                  </span>
+                  <div className="flex gap-1 overflow-x-auto pb-1.5 no-scrollbar">
+                    {PINYIN_TONES.map((tone) => (
+                      <button
+                        key={tone}
+                        type="button"
+                        onClick={() => handleInsertTone(tone)}
+                        className="min-w-[34px] h-9 px-1.5 rounded-xl bg-kawaii-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-kawaii-700 dark:text-kawaii-300 font-bold text-xs active:scale-90 shrink-0"
+                      >
+                        {tone}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* Thanh phím nhanh chọn ký tự thanh điệu Pinyin trên điện thoại */}
-          <div className="pt-2">
-            <span className="text-[11px] font-semibold text-gray-400 block mb-1">
-              Phím thanh điệu Pinyin:
-            </span>
-            <div className="flex gap-1 overflow-x-auto pb-1.5 no-scrollbar">
-              {PINYIN_TONES.map((tone) => (
-                <button
-                  key={tone}
-                  type="button"
-                  onClick={() => handleInsertTone(tone)}
-                  className="min-w-[34px] h-9 px-1.5 rounded-xl bg-kawaii-50 dark:bg-dark-bg border border-kawaii-200 dark:border-dark-border text-kawaii-700 dark:text-kawaii-300 font-bold text-xs active:scale-90 shrink-0"
-                >
-                  {tone}
-                </button>
-              ))}
-            </div>
-          </div>
-
+          {/* Form nhập đáp án */}
           <form onSubmit={handleCheckTyping} className="pt-2 space-y-3">
             <input
               ref={typingInputRef}
@@ -738,8 +978,14 @@ export const PracticePage: React.FC<PracticePageProps> = ({
               enterKeyHint="done"
               value={typedInput}
               onChange={(e) => setTypedInput(e.target.value)}
-              placeholder="Gõ từ vựng hoặc Pinyin..."
-              className="w-full p-3.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border-2 border-kawaii-300 dark:border-dark-border text-center text-base sm:text-lg font-bold outline-none focus:border-kawaii-500 dark:text-white"
+              placeholder={
+                currentDir === 'foreign_to_vi'
+                  ? 'Gõ nghĩa tiếng Việt (vd: xin chào, cảm ơn...)'
+                  : isChinese
+                    ? 'Gõ chữ Hán hoặc Pinyin...'
+                    : 'Gõ từ tiếng Anh...'
+              }
+              className="w-full p-3.5 rounded-2xl bg-gray-50 dark:bg-dark-bg border-2 border-kawaii-300 dark:border-dark-border text-center text-base sm:text-lg font-bold outline-none focus:border-kawaii-500 dark:text-white shadow-inner"
             />
 
             <button
@@ -750,20 +996,49 @@ export const PracticePage: React.FC<PracticePageProps> = ({
             </button>
           </form>
 
+          {/* Phản hồi kết quả thông minh */}
           {typingResult && (
             <div
-              className={`p-3 rounded-2xl text-xs font-bold animate-fade-in ${
+              className={`p-3.5 rounded-2xl text-xs font-bold animate-fade-in ${
                 typingResult === 'correct'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-red-50 text-red-700 border border-red-200'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                  : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
               }`}
             >
               {typingResult === 'correct' ? (
-                <span>🎉 Chính xác tuyệt vời!</span>
+                <div>
+                  <p className="text-sm">🎉 Chính xác tuyệt vời!</p>
+                  <p className="text-xs font-normal mt-0.5 opacity-90">
+                    {currentDir === 'foreign_to_vi' ? (
+                      <>
+                        Nghĩa chuẩn: <strong>{currentCard?.back}</strong> ({currentCard?.front}{' '}
+                        {currentCard?.phonetic && `- ${currentCard?.phonetic}`})
+                      </>
+                    ) : (
+                      <>
+                        Từ vựng: <strong>{currentCard?.front}</strong>{' '}
+                        {currentCard?.phonetic && `(${currentCard?.phonetic})`} • Nghĩa:{' '}
+                        {currentCard?.back}
+                      </>
+                    )}
+                  </p>
+                </div>
               ) : (
-                <span>
-                  ❌ Chưa đúng! Đáp án: {currentCard?.front} ({currentCard?.phonetic})
-                </span>
+                <div>
+                  <p className="text-sm">❌ Chưa đúng rồi!</p>
+                  <p className="text-xs font-normal mt-0.5 opacity-90">
+                    {currentDir === 'foreign_to_vi' ? (
+                      <>
+                        Đáp án đúng: <strong>{currentCard?.back}</strong>
+                      </>
+                    ) : (
+                      <>
+                        Đáp án đúng: <strong>{currentCard?.front}</strong>{' '}
+                        {currentCard?.phonetic && `(${currentCard?.phonetic})`}
+                      </>
+                    )}
+                  </p>
+                </div>
               )}
             </div>
           )}
